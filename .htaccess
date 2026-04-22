@@ -1,0 +1,20 @@
+Options -Indexes
+
+# Block direct access to config and internal files
+<FilesMatch "^(config\.php|conf\.php|template\.php|.*\.cache)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct access to internal directories and cache
+    RewriteRule ^templates(/.*)?$ - [F,L]
+    RewriteRule ^cache(/.*)?$ - [F,L]
+
+    # Route /{shortUuid} → index.php?id={shortUuid}
+    # Works in root or any subdirectory — always takes the last path segment
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([A-Za-z0-9_\-]+)/?$ index.php?id=$1 [L,QSA]
+</IfModule>
