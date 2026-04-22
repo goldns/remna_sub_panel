@@ -3,3 +3,4 @@ config.php
 Thumbs.db
 .idea/
 .vscode/
+*.py
