@@ -1,7 +1,7 @@
 Options -Indexes
 
 # Block direct access to config and internal files
-<FilesMatch "^(config\.php|conf\.php|template\.php|.*\.cache)$">
+<FilesMatch "^(config\.php|conf\.php|template\.php|functions\.php|happ\.php|browser\.php|.*\.cache)$">
     Require all denied
 </FilesMatch>
 
