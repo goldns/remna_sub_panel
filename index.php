@@ -8,7 +8,7 @@ require __DIR__ . '/template.php';
 require __DIR__ . '/happ.php';
 require __DIR__ . '/browser.php';
 
-define('VERSION',      '1.4.0');
+define('VERSION',      '1.4.3');
 define('SHOW_VERSION', (bool) ($config['show_version'] ?? false));
 define('PROJECT_NAME',     $config['project_name']     ?? '');
 define('SHOW_QR',          (bool) ($config['show_qr']          ?? false));

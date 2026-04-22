@@ -41,11 +41,20 @@ return [
     // Ссылка на Telegram или поддержку
     'support_url' => null,
 
+    // Имя файла в заголовке Content-Disposition (то, что видит Happ как имя профиля)
+    'content_disposition_name' => null,
+
     // Текст объявления в Happ (обычный текст; base64 применяется автоматически)
     'announce' => null,
 
     // Как часто Happ обновляет подписку (в часах)
     'profile_update_interval' => null,
+
+    // Routing-профиль Happ: null — не переопределять (берётся из Remnawave)
+    // строка — URL вида happ://routing/add/{base64} или happ://routing/onadd/{base64}
+    // text-подписка: вставляется первой строкой в тело; JSON-подписка: заголовок routing
+    // Заголовок routing от Remnawave при этом подавляется автоматически
+    'happ_routing' => null,
 
     // -------------------------------------------------------------------------
     // Дополнительные заголовки ответа для Happ (поведение клиента и флаги)

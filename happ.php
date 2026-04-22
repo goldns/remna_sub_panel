@@ -36,9 +36,10 @@ function serveHapp(string $shortUuid, array $config): void
         exit;
     }
 
-    $ignoredResp = array_flip(ignoredResponseHeaders());
+    $ignoredResp    = array_flip(ignoredResponseHeaders());
+    $overrideRouting = ($config['happ_routing'] ?? null) !== null;
     foreach ($result['headers'] as $name => $value) {
-        if (!isset($ignoredResp[$name])) {
+        if (!isset($ignoredResp[$name]) && !($overrideRouting && $name === 'routing')) {
             header($name . ': ' . $value);
         }
     }
@@ -46,66 +47,95 @@ function serveHapp(string $shortUuid, array $config): void
     applyConfigHeaderOverrides($config);
     applyHappFlags($config);
 
-    // Декодируем основной ответ один раз; если есть WL — сливаем массивы
-    // json_decode без true: объекты {} остаются stdClass, а не [], иначе json_encode
-    // превратит пустые объекты в массивы, что сломает xray-core (stats:{}, tcpSettings:{})
-    $decoded = json_decode($result['body']);
-
     $wlUrl    = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid . '_WL');
     $wlResult = apiGet($wlUrl, $forwardHeaders);
-    if ($wlResult['code'] === 200) {
-        $wlData = json_decode($wlResult['body']);
-        if (is_array($decoded) && is_array($wlData)) {
-            $decoded = array_merge($decoded, $wlData);
+
+    $contentType = $result['headers']['content-type'] ?? '';
+    if (str_contains($contentType, 'text/plain')) {
+        // Base64-формат: декодируем, сливаем с WL, перекодируем
+        $main = base64_decode(trim($result['body']), true);
+        if ($wlResult['code'] === 200) {
+            $wl = base64_decode(trim($wlResult['body']), true);
+            if ($main !== false && $wl !== false) {
+                $main = rtrim($main) . "\n" . ltrim($wl);
+            }
         }
+        if (!empty($config['happ_routing']) && $main !== false) {
+            $main = $config['happ_routing'] . "\n" . ltrim($main);
+        }
+        header('Content-Type: text/plain; charset=utf-8');
+        echo $main !== false ? base64_encode($main) : $result['body'];
+    } else {
+        // JSON-формат: декодируем, сливаем массивы, кодируем обратно
+        // json_decode без true: объекты {} остаются stdClass, иначе json_encode
+        // превратит пустые объекты в массивы, что сломает xray-core (stats:{}, tcpSettings:{})
+        $decoded = json_decode($result['body']);
+        if ($wlResult['code'] === 200) {
+            $wlData = json_decode($wlResult['body']);
+            if (is_array($decoded) && is_array($wlData)) {
+                $decoded = array_merge($decoded, $wlData);
+            }
+        }
+        $responseBody = $decoded !== null
+            ? json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            : $result['body'];
+        $routing = $config['happ_routing'] ?? null;
+        if ($routing !== null) {
+            if ($routing === '') {
+                header_remove('routing');
+            } else {
+                header('routing: ' . $routing);
+            }
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        echo $responseBody;
     }
-
-    $responseBody = $decoded !== null
-        ? json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-        : $result['body'];
-
-    header('Content-Type: application/json; charset=utf-8');
-    echo $responseBody;
 }
 
 // Применяет переопределения заголовков из конфига (null = не менять, '' = удалить)
 function applyConfigHeaderOverrides(array $config): void
 {
-    if ($config['profile_title'] !== null) {
-        if ($config['profile_title'] === '') {
+    $profileTitle = $config['profile_title'] ?? null;
+    if ($profileTitle !== null) {
+        if ($profileTitle === '') {
             header_remove('profile-title');
         } else {
-            header('profile-title: base64:' . base64_encode($config['profile_title']));
+            header('profile-title: base64:' . base64_encode($profileTitle));
         }
     }
 
-    if ($config['support_url'] !== null) {
-        if ($config['support_url'] === '') {
+    $supportUrl = $config['support_url'] ?? null;
+    if ($supportUrl !== null) {
+        if ($supportUrl === '') {
             header_remove('support-url');
         } else {
-            header('support-url: ' . $config['support_url']);
+            header('support-url: ' . $supportUrl);
         }
     }
 
-    if ($config['content_disposition_name'] !== null) {
-        if ($config['content_disposition_name'] === '') {
+    $contentDispositionName = $config['content_disposition_name'] ?? null;
+    if ($contentDispositionName !== null) {
+        if ($contentDispositionName === '') {
             header_remove('content-disposition');
         } else {
-            header('content-disposition: attachment; filename=' . $config['content_disposition_name']);
+            header('content-disposition: attachment; filename=' . $contentDispositionName);
         }
     }
 
-    if ($config['announce'] !== null) {
-        if ($config['announce'] === '') {
+    $announce = $config['announce'] ?? null;
+    if ($announce !== null) {
+        if ($announce === '') {
             header_remove('announce');
         } else {
-            header('announce: base64:' . base64_encode($config['announce']));
+            header('announce: base64:' . base64_encode($announce));
         }
     }
 
-    if ($config['profile_update_interval'] !== null) {
-        header('profile-update-interval: ' . $config['profile_update_interval']);
+    $profileUpdateInterval = $config['profile_update_interval'] ?? null;
+    if ($profileUpdateInterval !== null) {
+        header('profile-update-interval: ' . $profileUpdateInterval);
     }
+    // routing намеренно не здесь: для JSON — заголовок в serveHapp(), для base64 — в тело
 }
 
 // Отправляет кастомные заголовки из конфига (только для Happ-клиента)
@@ -161,7 +191,11 @@ function serveHappDebugView(string $shortUuid, array $config): void
     }
     $outHeaders['profile-web-page-url'] = currentUrl();
 
-    // Симулируем applyConfigHeaderOverrides
+    // Симулируем applyConfigHeaderOverrides (routing — отдельно ниже, зависит от формата)
+    $overrideRouting = ($config['happ_routing'] ?? null) !== null;
+    if ($overrideRouting) {
+        unset($outHeaders['routing']);
+    }
     $overrides = [
         'profile_title'            => fn($v) => ['profile-title',          'base64:' . base64_encode($v)],
         'support_url'              => fn($v) => ['support-url',             $v],
@@ -178,6 +212,12 @@ function serveHappDebugView(string $shortUuid, array $config): void
                 $outHeaders[$hName] = $hVal;
             }
         }
+    }
+    // routing: для JSON — заголовок, для base64 — только в тело (в заголовке не показываем)
+    $debugContentType = $result['headers']['content-type'] ?? '';
+    $debugIsBase64    = str_contains($debugContentType, 'text/plain');
+    if ($overrideRouting && !$debugIsBase64 && !empty($config['happ_routing'])) {
+        $outHeaders['routing'] = $config['happ_routing'];
     }
     foreach ($config['custom_headers'] ?? [] as $k => $v) {
         if ($v !== null) $outHeaders[$k] = $v;

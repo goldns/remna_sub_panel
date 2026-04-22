@@ -84,6 +84,12 @@ systemctl reload apache2
 - `'строка'` — заменить своим значением
 - `''` — удалить заголовок полностью
 
+Параметр `happ_routing` — routing-профиль (`null` = не переопределять):
+- Полный URL вида `happ://routing/add/{base64}` или `happ://routing/onadd/{base64}`
+- **text/plain подписка** — вставляется первой строкой в тело
+- **JSON подписка** — передаётся заголовком `routing`
+- Заголовок `routing` от Remnawave при этом подавляется автоматически
+
 ### Кастомные заголовки
 
 ```php
@@ -103,7 +109,7 @@ https://your-domain.com/{shortUuid}
 ```
 
 - Браузер → панель пользователя
-- Happ + X-HWID → подписка (JSON)
+- Happ + X-HWID → подписка (JSON или base64 — зависит от настроек Remnawave)
 - Happ без X-HWID → 403
 
 ## Лицензия
