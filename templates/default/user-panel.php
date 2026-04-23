@@ -107,7 +107,12 @@
                 </div>
                 <?php if (!empty($hwidInfo['devices'])): ?>
                 <div class="hwid-devices">
-                    <?php foreach ($hwidInfo['devices'] as $device):
+                    <?php
+                    $sortedDevices = $hwidInfo['devices'];
+                    usort($sortedDevices, fn($a, $b) =>
+                        strtotime($b['updatedAt'] ?? '0') <=> strtotime($a['updatedAt'] ?? '0')
+                    );
+                    foreach ($sortedDevices as $device):
                         $platformRaw = trim($device['platform'] ?? '');
                         $platform    = strtolower($platformRaw);
                         $model       = $device['deviceModel'] ?? '';
@@ -120,13 +125,18 @@
                         $metaTop     = implode(' / ', $metaParts);
                         $metaBottom  = t('hwid', 'last_seen') . ': ' . $ago . ' (' . $lastSeen . ')';
                     ?>
-                    <div class="hwid-device">
+                    <div class="hwid-device" data-hwid="<?= htmlspecialchars($device['hwid'] ?? '') ?>">
                         <div class="hwid-device-icon"><?= hwidPlatformIcon($platform) ?></div>
                         <div class="hwid-device-info">
                             <div class="hwid-device-name"><?= htmlspecialchars($name) ?></div>
                             <?php if ($metaTop !== ''): ?><div class="hwid-device-meta"><?= htmlspecialchars($metaTop) ?></div><?php endif ?>
                             <div class="hwid-device-meta hwid-device-seen"><?= htmlspecialchars($metaBottom) ?></div>
                         </div>
+                        <?php if (ALLOW_DELETE_HWID || DEBUG_MODE): ?>
+                        <button class="hwid-delete-btn" type="button" title="Удалить устройство" onclick="hwidDelete(this)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                        <?php endif ?>
                     </div>
                     <?php endforeach ?>
                 </div>
@@ -155,6 +165,27 @@ function hwidToggle() {
     var open = btn.getAttribute('aria-expanded') === 'true';
     btn.setAttribute('aria-expanded', open ? 'false' : 'true');
     body.classList.toggle('open', !open);
+}
+function hwidDelete(btn) {
+    var card = btn.closest('[data-hwid]');
+    var hwid = card ? card.getAttribute('data-hwid') : '';
+    if (!hwid) return;
+    btn.disabled = true;
+    var fd = new FormData();
+    fd.append('hwid', hwid);
+    fetch(window.location.pathname + '?action=delete_hwid', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.ok) {
+                card.style.transition = 'opacity .25s';
+                card.style.opacity = '0';
+                setTimeout(function() { card.remove(); }, 260);
+            } else {
+                btn.disabled = false;
+                alert('Ошибка: ' + (d.error || 'неизвестно'));
+            }
+        })
+        .catch(function() { btn.disabled = false; alert('Ошибка сети'); });
 }
 </script>
 </body>

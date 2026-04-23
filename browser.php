@@ -5,6 +5,80 @@ declare(strict_types=1);
 // Браузер — рендер панели пользователя
 // ---------------------------------------------------------------------------
 
+function handleDeleteHwid(string $shortUuid, array $config): void
+{
+    header('Content-Type: application/json');
+
+    $hwid = trim($_POST['hwid'] ?? '');
+    if ($hwid === '') {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Missing hwid']);
+        return;
+    }
+
+    if (empty($config['api_token'])) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'error' => 'No API token configured']);
+        return;
+    }
+
+    $base       = rtrim($config['remnawave_url'], '/');
+    $authHeader = 'Authorization: Bearer ' . $config['api_token'];
+
+    $infoResult = apiGet(
+        $base . '/api/sub/' . rawurlencode($shortUuid) . '/info',
+        ['Accept: application/json', 'X-Forwarded-For: ' . clientIp(), $authHeader]
+    );
+
+    if ($infoResult['code'] !== 200) {
+        http_response_code(404);
+        echo json_encode(['ok' => false, 'error' => 'User not found']);
+        return;
+    }
+
+    $info     = json_decode($infoResult['body'], true);
+    $username = $info['response']['user']['username'] ?? '';
+
+    if ($username === '') {
+        http_response_code(404);
+        echo json_encode(['ok' => false, 'error' => 'Username not found']);
+        return;
+    }
+
+    $userDetailResult = apiGet(
+        $base . '/api/users/by-username/' . rawurlencode($username),
+        [$authHeader]
+    );
+
+    if ($userDetailResult['code'] !== 200) {
+        http_response_code(404);
+        echo json_encode(['ok' => false, 'error' => 'User detail not found']);
+        return;
+    }
+
+    $userDetail = json_decode($userDetailResult['body'], true);
+    $userUuid   = $userDetail['response']['uuid'] ?? '';
+
+    if ($userUuid === '') {
+        http_response_code(404);
+        echo json_encode(['ok' => false, 'error' => 'UUID not found']);
+        return;
+    }
+
+    $deleteResult = apiPost(
+        $base . '/api/hwid/devices/delete',
+        json_encode(['userUuid' => $userUuid, 'hwid' => $hwid]),
+        [$authHeader, 'Content-Type: application/json']
+    );
+
+    if ($deleteResult['code'] === 200) {
+        echo json_encode(['ok' => true]);
+    } else {
+        http_response_code($deleteResult['code'] ?: 502);
+        echo json_encode(['ok' => false, 'error' => 'Delete failed: ' . $deleteResult['code']]);
+    }
+}
+
 function serveBrowser(string $shortUuid, array $config): void
 {
     $url = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid) . '/info';

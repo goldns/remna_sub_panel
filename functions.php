@@ -1,6 +1,39 @@
 <?php
 declare(strict_types=1);
 
+// Проверяет, попадает ли IP клиента в список допустимых IP/CIDR-подсетей.
+// $debugIp может быть строкой (один IP) или массивом (IP и/или CIDR-подсети).
+function clientIpMatchesDebugList(array|string $debugIp): bool
+{
+    if (empty($debugIp)) return false;
+    $entries  = is_array($debugIp) ? $debugIp : [$debugIp];
+    $clientIp = clientIp();
+    foreach ($entries as $entry) {
+        $entry = trim((string) $entry);
+        if ($entry === '') continue;
+        if (str_contains($entry, '/')) {
+            if (ipInCidr($clientIp, $entry)) return true;
+        } elseif ($clientIp === $entry) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Проверяет, входит ли $ip в CIDR-подсеть (только IPv4).
+function ipInCidr(string $ip, string $cidr): bool
+{
+    $parts = explode('/', $cidr, 2);
+    if (count($parts) !== 2) return false;
+    [$subnet, $bits] = $parts;
+    $bits       = max(0, min(32, (int) $bits));
+    $ipLong     = ip2long($ip);
+    $subnetLong = ip2long($subnet);
+    if ($ipLong === false || $subnetLong === false) return false;
+    $mask = $bits === 0 ? 0 : (~0 << (32 - $bits));
+    return ($ipLong & $mask) === ($subnetLong & $mask);
+}
+
 // Полный URL текущего запроса (используется для profile-web-page-url)
 function currentUrl(): string
 {
@@ -35,6 +68,42 @@ function apiGet(string $url, array $extraHeaders = []): array
         CURLOPT_TIMEOUT        => 10,
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_ENCODING       => '', // принять любое сжатие, распаковать автоматически
+        CURLOPT_HEADERFUNCTION => function ($_, $header) use (&$responseHeaders) {
+            $parts = explode(':', $header, 2);
+            if (count($parts) === 2) {
+                $responseHeaders[strtolower(trim($parts[0]))] = trim($parts[1]);
+            }
+            return strlen($header);
+        },
+    ]);
+
+    $t0   = microtime(true);
+    $body = curl_exec($ch);
+    $ms   = (int) round((microtime(true) - $t0) * 1000);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return [
+        'code'    => $code,
+        'headers' => $responseHeaders,
+        'body'    => (string) $body,
+        'ms'      => $ms,
+    ];
+}
+
+// POST-запрос к API Remnawave, возвращает код, заголовки, тело и время выполнения
+function apiPost(string $url, string $payload, array $extraHeaders = []): array
+{
+    $responseHeaders = [];
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => $extraHeaders,
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_HEADERFUNCTION => function ($_, $header) use (&$responseHeaders) {
             $parts = explode(':', $header, 2);
             if (count($parts) === 2) {

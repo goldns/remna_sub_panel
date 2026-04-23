@@ -259,6 +259,24 @@ body::after {
 }
 .hwid-device-seen { opacity: .7 }
 
+.hwid-delete-btn {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(220,50,30,.08);
+    border: 1px solid rgba(220,50,30,.15);
+    color: #c0392b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s;
+    padding: 0;
+}
+.hwid-delete-btn:hover { background: rgba(220,50,30,.2); }
+.hwid-delete-btn:disabled { opacity: .4; cursor: not-allowed; }
+
 /* ── Footer ── */
 .footer {
     margin-top: 14px;
