@@ -24,10 +24,14 @@ function cacheDel(string $key): void
 }
 
 // GET-запрос с APCu-кэшем. Кэшируются только ответы со статусом 200.
+// При cache hit устанавливает $GLOBALS['__cache_hit'] = true.
 function cachedApiGet(string $cacheKey, string $url, array $headers, int $ttl): array
 {
     $cached = cacheGet($cacheKey);
-    if ($cached !== null) return $cached;
+    if ($cached !== null) {
+        $GLOBALS['__cache_hit'] = true;
+        return $cached;
+    }
     $result = apiGet($url, $headers);
     if ($result['code'] === 200) cacheSet($cacheKey, $result, $ttl);
     return $result;

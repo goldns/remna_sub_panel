@@ -201,7 +201,7 @@
         <span class="copyright"><?= htmlspecialchars(str_replace('{year}', date('Y'), COPYRIGHT)) ?></span>
         <?php endif ?>
         <?php if (SHOW_VERSION): ?>
-        <span class="version">v<?= VERSION ?></span>
+        <span class="version"><?= ($GLOBALS['__cache_hit'] ?? false) ? '*' : '' ?>v<?= VERSION ?></span>
         <?php endif ?>
     </div>
     <?php endif ?>
