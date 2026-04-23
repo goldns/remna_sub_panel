@@ -77,6 +77,7 @@ function handleDeleteHwid(string $shortUuid, array $config): void
     );
 
     if ($deleteResult['code'] === 200) {
+        cacheDel('rsb_hwid_' . $userUuid);
         echo json_encode(['ok' => true]);
     } else {
         http_response_code($deleteResult['code'] ?: 502);
@@ -93,16 +94,20 @@ function serveBrowser(string $shortUuid, array $config): void
         $sendHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
     }
 
-    $result = apiGet($url, $sendHeaders);
+    $result = cachedApiGet('rsb_info_' . $shortUuid, $url, $sendHeaders, CACHE_TTL);
 
-    $wlUser = null;
+    $wlUser   = null;
+    $wlUrl    = null;
+    $wlResult = null;
     $wlSuffix = $config['wl_suffix'] ?? '_WL';
-    $wlUrl    = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid . $wlSuffix) . '/info';
-    $wlResult = apiGet($wlUrl, $sendHeaders);
-    if ($wlResult['code'] === 200) {
-        $wlData = json_decode($wlResult['body'], true);
-        if (!empty($wlData['response']['isFound'])) {
-            $wlUser = $wlData['response']['user'] ?? null;
+    if ($config['enable_wl'] ?? true) {
+        $wlUrl    = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid . $wlSuffix) . '/info';
+        $wlResult = cachedApiGet('rsb_info_' . $shortUuid . $wlSuffix, $wlUrl, $sendHeaders, CACHE_TTL);
+        if ($wlResult['code'] === 200) {
+            $wlData = json_decode($wlResult['body'], true);
+            if (!empty($wlData['response']['isFound'])) {
+                $wlUser = $wlData['response']['user'] ?? null;
+            }
         }
     }
 
@@ -128,17 +133,20 @@ function serveBrowser(string $shortUuid, array $config): void
         }
         $rawResp .= "\n" . $result['body'];
 
-        $wlRawReq = 'GET ' . parse_url($wlUrl, PHP_URL_PATH) . ' HTTP/1.1' . "\n"
-            . 'Host: ' . (parse_url($wlUrl, PHP_URL_HOST) ?? '') . "\n";
-        foreach ($debugHeaders as $h) {
-            $wlRawReq .= $h . "\n";
+        $wlRawReq  = '';
+        $wlRawResp = '';
+        if ($wlUrl !== null && $wlResult !== null) {
+            $wlRawReq = 'GET ' . parse_url($wlUrl, PHP_URL_PATH) . ' HTTP/1.1' . "\n"
+                . 'Host: ' . (parse_url($wlUrl, PHP_URL_HOST) ?? '') . "\n";
+            foreach ($debugHeaders as $h) {
+                $wlRawReq .= $h . "\n";
+            }
+            $wlRawResp = 'HTTP/1.1 ' . $wlResult['code'] . "\n";
+            foreach ($wlResult['headers'] as $k => $v) {
+                $wlRawResp .= $k . ': ' . $v . "\n";
+            }
+            $wlRawResp .= "\n" . $wlResult['body'];
         }
-
-        $wlRawResp = 'HTTP/1.1 ' . $wlResult['code'] . "\n";
-        foreach ($wlResult['headers'] as $k => $v) {
-            $wlRawResp .= $k . ': ' . $v . "\n";
-        }
-        $wlRawResp .= "\n" . $wlResult['body'];
 
         $debug = [
             'client_ip'        => clientIp(),
@@ -153,9 +161,9 @@ function serveBrowser(string $shortUuid, array $config): void
             'api_resp_headers' => $result['headers'],
             'raw_request'      => $rawReq,
             'raw_response'     => $rawResp,
-            'wl_api_url'       => $wlUrl,
-            'wl_api_status'    => $wlResult['code'],
-            'wl_api_ms'        => $wlResult['ms'],
+            'wl_api_url'       => $wlUrl ?? '(WL отключён)',
+            'wl_api_status'    => $wlResult['code'] ?? 0,
+            'wl_api_ms'        => $wlResult['ms'] ?? 0,
             'wl_found'         => $wlUser !== null,
             'wl_raw_request'   => $wlRawReq,
             'wl_raw_response'  => $wlRawResp,
@@ -184,7 +192,7 @@ function serveBrowser(string $shortUuid, array $config): void
         $base            = rtrim($config['remnawave_url'], '/');
         $username        = $user['username'] ?? '';
         $userDetailUrl   = $base . '/api/users/by-username/' . rawurlencode($username);
-        $userDetailResult = apiGet($userDetailUrl, [$authHeader]);
+        $userDetailResult = cachedApiGet('rsb_udet_' . $username, $userDetailUrl, [$authHeader], CACHE_TTL * 5);
 
         if ($userDetailResult['code'] === 200) {
             $userDetail = json_decode($userDetailResult['body'], true);
@@ -199,7 +207,7 @@ function serveBrowser(string $shortUuid, array $config): void
 
             if ($fullUuid) {
                 $hwidUrl       = $base . '/api/hwid/devices/' . rawurlencode($fullUuid);
-                $hwidResult    = apiGet($hwidUrl, [$authHeader]);
+                $hwidResult    = cachedApiGet('rsb_hwid_' . $fullUuid, $hwidUrl, [$authHeader], CACHE_TTL);
                 $hwidApiStatus = $hwidResult['code'];
                 $hwidApiMs     = $hwidResult['ms'];
                 if ($hwidResult['code'] === 200) {
@@ -218,13 +226,13 @@ function serveBrowser(string $shortUuid, array $config): void
             // Загружаем HWID-устройства WL-пользователя
             if ($wlUser !== null && ($config['enable_wl'] ?? true)) {
                 $wlUsername        = $wlUser['username'] ?? '';
-                $wlUserDetailResult = apiGet($base . '/api/users/by-username/' . rawurlencode($wlUsername), [$authHeader]);
+                $wlUserDetailResult = cachedApiGet('rsb_udet_' . $wlUsername, $base . '/api/users/by-username/' . rawurlencode($wlUsername), [$authHeader], CACHE_TTL * 5);
                 if ($wlUserDetailResult['code'] === 200) {
                     $wlUserDetail  = json_decode($wlUserDetailResult['body'], true);
                     $wlFullUuid    = $wlUserDetail['response']['uuid']            ?? null;
                     $wlHwidLimit   = $wlUserDetail['response']['hwidDeviceLimit'] ?? null;
                     if ($wlFullUuid) {
-                        $wlHwidResult = apiGet($base . '/api/hwid/devices/' . rawurlencode($wlFullUuid), [$authHeader]);
+                        $wlHwidResult = cachedApiGet('rsb_hwid_' . $wlFullUuid, $base . '/api/hwid/devices/' . rawurlencode($wlFullUuid), [$authHeader], CACHE_TTL);
                         if ($wlHwidResult['code'] === 200) {
                             $wlHwidData  = json_decode($wlHwidResult['body'], true);
                             $wlHwidInfo  = [

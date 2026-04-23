@@ -5,6 +5,16 @@ declare(strict_types=1);
 // Happ — проксирование подписки
 // ---------------------------------------------------------------------------
 
+function resolveSubstituteUuid(string $status, array $config): string
+{
+    return match($status) {
+        'limited'  => $config['user_limited']  ?? '',
+        'disabled' => $config['user_disabled'] ?? '',
+        'expired'  => $config['user_expired']  ?? '',
+        default    => '',
+    };
+}
+
 function serveHapp(string $shortUuid, array $config): void
 {
     $ignored = array_flip(ignoredRequestHeaders());
@@ -39,13 +49,8 @@ function serveHapp(string $shortUuid, array $config): void
     }
 
     // 2. UUID подмены (пустая строка = не задан = работать как обычно)
-    $substituteUuid = match($status) {
-        'limited'  => $config['user_limited']  ?? '',
-        'disabled' => $config['user_disabled'] ?? '',
-        'expired'  => $config['user_expired']  ?? '',
-        default    => '',
-    };
-    $isSubstitute = $substituteUuid !== '';
+    $substituteUuid = resolveSubstituteUuid($status, $config);
+    $isSubstitute   = $substituteUuid !== '';
 
     // 3. Основной запрос (заголовки + тело оригинального пользователя)
     $url    = $base . '/api/sub/' . rawurlencode($shortUuid);
@@ -230,13 +235,8 @@ function serveHappDebugView(string $shortUuid, array $config): void
         $status   = strtolower($infoData['response']['user']['userStatus'] ?? 'active');
     }
 
-    $substituteUuid = match($status) {
-        'limited'  => $config['user_limited']  ?? '',
-        'disabled' => $config['user_disabled'] ?? '',
-        'expired'  => $config['user_expired']  ?? '',
-        default    => '',
-    };
-    $isSubstitute = $substituteUuid !== '';
+    $substituteUuid = resolveSubstituteUuid($status, $config);
+    $isSubstitute   = $substituteUuid !== '';
 
     // Основной запрос
     $url    = $base . '/api/sub/' . rawurlencode($shortUuid);

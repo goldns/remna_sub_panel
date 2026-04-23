@@ -13,7 +13,7 @@ require __DIR__ . '/template.php';
 require __DIR__ . '/happ.php';
 require __DIR__ . '/browser.php';
 
-define('VERSION',          '1.4.6');
+define('VERSION',          '1.5.0');
 define('SHOW_VERSION',     (bool) ($config['show_version'] ?? false));
 define('TEMPLATE_DIR',     __DIR__ . '/templates/' . ($config['template'] ?? 'default'));
 define('PROJECT_NAME',     $config['project_name']     ?? '');
@@ -22,6 +22,8 @@ define('COPYRIGHT',        $config['copyright']        ?? '');
 define('ENCRYPT_SUB_LINK', (bool) ($config['encrypt_sub_link'] ?? true));
 define('DEBUG_MODE',       !empty($config['debug_ip']) && clientIpMatchesDebugList($config['debug_ip']));
 define('ALLOW_DELETE_HWID', (bool) ($config['allow_delete_hwid'] ?? false));
+define('APCU_CACHE',        (bool) ($config['apcu_cache']        ?? true));
+define('CACHE_TTL',         max(1, (int) ($config['cache_ttl']   ?? 60)));
 
 $_langCode = $config['lang'] ?? 'ru';
 $_langFile = __DIR__ . '/lang/lang_' . $_langCode . '.php';

@@ -1,6 +1,39 @@
 <?php
 declare(strict_types=1);
 
+// ---------------------------------------------------------------------------
+// APCu-кэш (деградирует до no-op если APCu недоступен или APCU_CACHE=false)
+// ---------------------------------------------------------------------------
+
+function cacheGet(string $key): mixed
+{
+    if (!defined('APCU_CACHE') || !APCU_CACHE || !function_exists('apcu_fetch')) return null;
+    $val = apcu_fetch($key, $ok);
+    return $ok ? $val : null;
+}
+
+function cacheSet(string $key, mixed $value, int $ttl): void
+{
+    if (!defined('APCU_CACHE') || !APCU_CACHE || !function_exists('apcu_store') || $ttl <= 0) return;
+    apcu_store($key, $value, $ttl);
+}
+
+function cacheDel(string $key): void
+{
+    if (function_exists('apcu_delete')) apcu_delete($key);
+}
+
+// GET-запрос с APCu-кэшем. Кэшируются только ответы со статусом 200.
+function cachedApiGet(string $cacheKey, string $url, array $headers, int $ttl): array
+{
+    $cached = cacheGet($cacheKey);
+    if ($cached !== null) return $cached;
+    $result = apiGet($url, $headers);
+    if ($result['code'] === 200) cacheSet($cacheKey, $result, $ttl);
+    return $result;
+}
+
+// ---------------------------------------------------------------------------
 // Проверяет, попадает ли IP клиента в список допустимых IP/CIDR-подсетей.
 // $debugIp может быть строкой (один IP) или массивом (IP и/или CIDR-подсети).
 function clientIpMatchesDebugList(array|string $debugIp): bool
