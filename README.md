@@ -157,6 +157,10 @@ https://your-domain.com/{shortUuid}
 - Happ + X-HWID → подписка (JSON или base64 — зависит от настроек Remnawave)
 - Happ без X-HWID → 403
 
+## Автор
+
+[@kamgoldns](https://t.me/kamgoldns)
+
 ## Лицензия
 
 MIT
