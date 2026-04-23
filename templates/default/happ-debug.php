@@ -58,6 +58,26 @@
                 <span><?= t('happ_debug', 'label_url') ?></span>
                 <code><?= htmlspecialchars($data['api_url']) ?></code>
             </div>
+            <?php
+            $userStatus = $data['user_status'] ?? 'active';
+            $statusColor = match($userStatus) {
+                'active'   => '#4ade80',
+                'limited'  => '#fb923c',
+                'expired'  => '#94a3b8',
+                'disabled' => '#f87171',
+                default    => '#64748b',
+            };
+            ?>
+            <div class="hd-meta-item">
+                <span>user status:</span>
+                <code style="color:<?= $statusColor ?>"><?= htmlspecialchars(strtoupper($userStatus)) ?></code>
+            </div>
+            <?php if ($data['is_substitute'] ?? false): ?>
+            <div class="hd-meta-item">
+                <span>mode:</span>
+                <code style="color:#fb923c">SUBSTITUTE</code>
+            </div>
+            <?php endif ?>
         </div>
 
         <div class="hd-tabs">
@@ -82,6 +102,58 @@
         </div>
     </div>
 
+    <!-- /info API card -->
+    <div class="hd-card">
+        <div class="hd-title" style="color:#a78bfa">🔍 /info (статус пользователя)</div>
+        <?php $infoSc = ($data['info_api_status'] ?? 0) === 200 ? '#4ade80' : '#f87171' ?>
+        <div class="hd-meta">
+            <div class="hd-meta-item">
+                <span><?= t('happ_debug', 'label_status') ?></span>
+                <code style="color:<?= $infoSc ?>"><?= $data['info_api_status'] ?? '—' ?></code>
+            </div>
+            <div class="hd-meta-item">
+                <span><?= t('happ_debug', 'label_time') ?></span>
+                <code><?= $data['info_api_ms'] ?? '—' ?> <?= t('happ_debug', 'label_ms') ?></code>
+            </div>
+        </div>
+        <div class="dbg-raw" id="hd-info-body" data-raw="<?= htmlspecialchars($data['info_body'] ?? '') ?>"></div>
+    </div>
+
+    <?php if ($data['is_substitute'] ?? false): ?>
+    <!-- Substitute body card -->
+    <div class="hd-card">
+        <div class="hd-title" style="color:#fb923c">🔄 Подмена тела (<?= htmlspecialchars(strtoupper($data['user_status'] ?? '')) ?>)</div>
+        <?php $subSc = ($data['sub_api_status'] ?? 0) === 200 ? '#4ade80' : '#f87171' ?>
+        <div class="hd-meta">
+            <div class="hd-meta-item">
+                <span><?= t('happ_debug', 'label_status') ?></span>
+                <code style="color:<?= $subSc ?>"><?= $data['sub_api_status'] ?? '—' ?></code>
+            </div>
+            <div class="hd-meta-item">
+                <span><?= t('happ_debug', 'label_time') ?></span>
+                <code><?= $data['sub_api_ms'] ?? '—' ?> <?= t('happ_debug', 'label_ms') ?></code>
+            </div>
+            <div class="hd-meta-item">
+                <span><?= t('happ_debug', 'label_url') ?></span>
+                <code><?= htmlspecialchars($data['sub_api_url'] ?? '') ?></code>
+            </div>
+        </div>
+        <?php if (($data['sub_api_status'] ?? 0) !== 200): ?>
+        <div class="hd-not-found"><?= t('happ_debug', 'wl_not_found') ?></div>
+        <?php else: ?>
+        <div class="hd-tabs">
+            <button class="hd-tab active" onclick="hdTab(this,'hd-sub-pane-raw-req','hd-sub')"><?= t('happ_debug', 'tab_raw_req') ?></button>
+            <button class="hd-tab" onclick="hdTab(this,'hd-sub-pane-raw-resp','hd-sub')"><?= t('happ_debug', 'tab_raw_resp') ?></button>
+        </div>
+        <div id="hd-sub-pane-raw-req" class="hd-pane active" data-group="hd-sub">
+            <div class="dbg-raw" id="hd-sub-raw-req" data-raw="<?= htmlspecialchars($data['sub_raw_request'] ?? '') ?>"></div>
+        </div>
+        <div id="hd-sub-pane-raw-resp" class="hd-pane" data-group="hd-sub">
+            <div class="dbg-raw" id="hd-sub-raw-resp" data-raw="<?= htmlspecialchars($data['sub_raw_response'] ?? '') ?>"></div>
+        </div>
+        <?php endif ?>
+    </div>
+    <?php else: ?>
     <!-- WL subscription card -->
     <div class="hd-card">
         <div class="hd-title wl">🔒 <?= t('happ_debug', 'wl_title') ?></div>
@@ -116,6 +188,7 @@
         </div>
         <?php endif ?>
     </div>
+    <?php endif ?>
 
 </div>
 <script src="<?= assetUrl('js/debug.js') ?>"></script>
@@ -128,10 +201,13 @@ function hdTab(el, pane, group) {
 }
 document.addEventListener('DOMContentLoaded', function() {
     [
-        ['hd-raw-req',     hlRequest],
-        ['hd-raw-resp',    hlResponse],
-        ['hd-wl-raw-req',  hlRequest],
-        ['hd-wl-raw-resp', hlResponse],
+        ['hd-raw-req',      hlRequest],
+        ['hd-raw-resp',     hlResponse],
+        ['hd-wl-raw-req',   hlRequest],
+        ['hd-wl-raw-resp',  hlResponse],
+        ['hd-sub-raw-req',  hlRequest],
+        ['hd-sub-raw-resp', hlResponse],
+        ['hd-info-body',    hlJson],
     ].forEach(function(pair) {
         var el = document.getElementById(pair[0]);
         if (el && el.dataset.raw) el.innerHTML = pair[1](el.dataset.raw);

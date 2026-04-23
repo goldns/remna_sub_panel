@@ -17,7 +17,8 @@ function serveBrowser(string $shortUuid, array $config): void
     $result = apiGet($url, $sendHeaders);
 
     $wlUser = null;
-    $wlUrl  = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid . '_WL') . '/info';
+    $wlSuffix = $config['wl_suffix'] ?? '_WL';
+    $wlUrl    = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid . $wlSuffix) . '/info';
     $wlResult = apiGet($wlUrl, $sendHeaders);
     if ($wlResult['code'] === 200) {
         $wlData = json_decode($wlResult['body'], true);

@@ -24,19 +24,40 @@ function serveHapp(string $shortUuid, array $config): void
     $forwardHeaders[] = 'X-Forwarded-For: ' . clientIp();
     $forwardHeaders[] = 'Accept: */*';
 
-    $url    = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid);
+    $base = rtrim($config['remnawave_url'], '/');
+
+    // 1. Статус пользователя (минимальные заголовки — как browser.php)
+    $infoHeaders = ['Accept: application/json', 'X-Forwarded-For: ' . clientIp()];
+    if (!empty($config['api_token'])) {
+        $infoHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
+    }
+    $infoResult = apiGet($base . '/api/sub/' . rawurlencode($shortUuid) . '/info', $infoHeaders);
+    $status = 'active';
+    if ($infoResult['code'] === 200) {
+        $infoData = json_decode($infoResult['body'], true);
+        $status   = strtolower($infoData['response']['user']['userStatus'] ?? 'active');
+    }
+
+    // 2. UUID подмены (пустая строка = не задан = работать как обычно)
+    $substituteUuid = match($status) {
+        'limited'  => $config['user_limited']  ?? '',
+        'disabled' => $config['user_disabled'] ?? '',
+        'expired'  => $config['user_expired']  ?? '',
+        default    => '',
+    };
+    $isSubstitute = $substituteUuid !== '';
+
+    // 3. Основной запрос (заголовки + тело оригинального пользователя)
+    $url    = $base . '/api/sub/' . rawurlencode($shortUuid);
     $result = apiGet($url, $forwardHeaders);
 
-    if ($result['code'] === 404) {
+    if ($result['code'] !== 200) {
         renderErrorPage(404, 'Not Found');
         exit;
     }
-    if ($result['code'] !== 200) {
-        renderErrorPage(502, 'Bad Gateway');
-        exit;
-    }
 
-    $ignoredResp    = array_flip(ignoredResponseHeaders());
+    // 4. Форвардим заголовки оригинального пользователя
+    $ignoredResp     = array_flip(ignoredResponseHeaders());
     $overrideRouting = ($config['happ_routing'] ?? null) !== null;
     foreach ($result['headers'] as $name => $value) {
         if (!isset($ignoredResp[$name]) && !($overrideRouting && $name === 'routing')) {
@@ -47,38 +68,54 @@ function serveHapp(string $shortUuid, array $config): void
     applyConfigHeaderOverrides($config);
     applyHappFlags($config);
 
-    $wlUrl    = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid . '_WL');
-    $wlResult = apiGet($wlUrl, $forwardHeaders);
-
-    $contentType = $result['headers']['content-type'] ?? '';
-    if (str_contains($contentType, 'text/plain')) {
-        // Base64-формат: декодируем, сливаем с WL, перекодируем
-        $main = base64_decode(trim($result['body']), true);
-        if ($wlResult['code'] === 200) {
-            $wl = base64_decode(trim($wlResult['body']), true);
-            if ($main !== false && $wl !== false) {
-                $main = rtrim($main) . "\n" . ltrim($wl);
+    if ($isSubstitute) {
+        // 5a. Слияние: оригинал + substitute (без WL)
+        $subResult = apiGet($base . '/api/sub/' . rawurlencode($substituteUuid), $forwardHeaders);
+        happOutputBody($result, $subResult['code'] === 200 ? $subResult : null, $config);
+    } else {
+        // 5b. Активный пользователь: оригинал + WL (если включено)
+        $extra = null;
+        if ($config['enable_wl'] ?? true) {
+            $wlSuffix = $config['wl_suffix'] ?? '_WL';
+            $wlResult = apiGet($base . '/api/sub/' . rawurlencode($shortUuid . $wlSuffix), $forwardHeaders);
+            if ($wlResult['code'] === 200) {
+                $extra = $wlResult;
             }
         }
-        if (!empty($config['happ_routing']) && $main !== false) {
-            $main = $config['happ_routing'] . "\n" . ltrim($main);
+        happOutputBody($result, $extra, $config);
+    }
+}
+
+// Склеивает тело $main с телом $extra (null = только main) и отправляет клиенту.
+// Формат определяется по content-type основного ответа.
+function happOutputBody(array $main, ?array $extra, array $config): void
+{
+    $contentType = $main['headers']['content-type'] ?? '';
+
+    if (str_contains($contentType, 'text/plain')) {
+        $body = base64_decode(trim($main['body']), true);
+        if ($extra !== null) {
+            $extraBody = base64_decode(trim($extra['body']), true);
+            if ($body !== false && $extraBody !== false) {
+                $body = rtrim($body) . "\n" . ltrim($extraBody);
+            }
+        }
+        if (!empty($config['happ_routing']) && $body !== false) {
+            $body = $config['happ_routing'] . "\n" . ltrim($body);
         }
         header('Content-Type: text/plain; charset=utf-8');
-        echo $main !== false ? base64_encode($main) : $result['body'];
+        echo $body !== false ? base64_encode($body) : $main['body'];
     } else {
-        // JSON-формат: декодируем, сливаем массивы, кодируем обратно
-        // json_decode без true: объекты {} остаются stdClass, иначе json_encode
-        // превратит пустые объекты в массивы, что сломает xray-core (stats:{}, tcpSettings:{})
-        $decoded = json_decode($result['body']);
-        if ($wlResult['code'] === 200) {
-            $wlData = json_decode($wlResult['body']);
-            if (is_array($decoded) && is_array($wlData)) {
-                $decoded = array_merge($decoded, $wlData);
+        $decoded = json_decode($main['body']);
+        if ($extra !== null) {
+            $extraDecoded = json_decode($extra['body']);
+            if (is_array($decoded) && is_array($extraDecoded)) {
+                $decoded = array_merge($decoded, $extraDecoded);
             }
         }
         $responseBody = $decoded !== null
             ? json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-            : $result['body'];
+            : $main['body'];
         $routing = $config['happ_routing'] ?? null;
         if ($routing !== null) {
             if ($routing === '') {
@@ -135,7 +172,7 @@ function applyConfigHeaderOverrides(array $config): void
     if ($profileUpdateInterval !== null) {
         header('profile-update-interval: ' . $profileUpdateInterval);
     }
-    // routing намеренно не здесь: для JSON — заголовок в serveHapp(), для base64 — в тело
+    // routing намеренно не здесь: для JSON — заголовок в happOutputBody(), для base64 — в тело
 }
 
 // Отправляет кастомные заголовки из конфига (только для Happ-клиента)
@@ -179,7 +216,30 @@ function serveHappDebugView(string $shortUuid, array $config): void
         $forwardHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
     }
 
-    $url    = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid);
+    $base = rtrim($config['remnawave_url'], '/');
+
+    // Статус пользователя (минимальные заголовки — как browser.php)
+    $infoHeaders = ['Accept: application/json', 'X-Forwarded-For: ' . clientIp()];
+    if (!empty($config['api_token'])) {
+        $infoHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
+    }
+    $infoResult = apiGet($base . '/api/sub/' . rawurlencode($shortUuid) . '/info', $infoHeaders);
+    $status = 'active';
+    if ($infoResult['code'] === 200) {
+        $infoData = json_decode($infoResult['body'], true);
+        $status   = strtolower($infoData['response']['user']['userStatus'] ?? 'active');
+    }
+
+    $substituteUuid = match($status) {
+        'limited'  => $config['user_limited']  ?? '',
+        'disabled' => $config['user_disabled'] ?? '',
+        'expired'  => $config['user_expired']  ?? '',
+        default    => '',
+    };
+    $isSubstitute = $substituteUuid !== '';
+
+    // Основной запрос
+    $url    = $base . '/api/sub/' . rawurlencode($shortUuid);
     $result = apiGet($url, $forwardHeaders);
 
     $ignoredResp = array_flip(ignoredResponseHeaders());
@@ -235,22 +295,7 @@ function serveHappDebugView(string $shortUuid, array $config): void
     }
     $rawResp .= "\n" . $result['body'];
 
-    $wlUrl    = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid . '_WL');
-    $wlResult = apiGet($wlUrl, $forwardHeaders);
-
-    $wlRawReq = 'GET ' . parse_url($wlUrl, PHP_URL_PATH) . ' HTTP/1.1' . "\n"
-        . 'Host: ' . (parse_url($wlUrl, PHP_URL_HOST) ?? '') . "\n";
-    foreach ($forwardHeaders as $h) {
-        $wlRawReq .= $h . "\n";
-    }
-
-    $wlRawResp = 'HTTP/1.1 ' . $wlResult['code'] . "\n";
-    foreach ($wlResult['headers'] as $k => $v) {
-        $wlRawResp .= $k . ': ' . $v . "\n";
-    }
-    $wlRawResp .= "\n" . $wlResult['body'];
-
-    renderHappDebug([
+    $debugData = [
         'api_status'      => $result['code'],
         'api_ms'          => $result['ms'],
         'api_url'         => $url,
@@ -258,10 +303,69 @@ function serveHappDebugView(string $shortUuid, array $config): void
         'raw_request'     => $rawReq,
         'raw_response'    => $rawResp,
         'body'            => $result['body'],
-        'wl_api_status'   => $wlResult['code'],
-        'wl_api_ms'       => $wlResult['ms'],
-        'wl_api_url'      => $wlUrl,
-        'wl_raw_request'  => $wlRawReq,
-        'wl_raw_response' => $wlRawResp,
-    ]);
+        'user_status'     => $status,
+        'is_substitute'   => $isSubstitute,
+        'info_api_status' => $infoResult['code'],
+        'info_api_ms'     => $infoResult['ms'],
+        'info_body'       => $infoResult['body'],
+    ];
+
+    if ($isSubstitute) {
+        $subUrl    = $base . '/api/sub/' . rawurlencode($substituteUuid);
+        $subResult = apiGet($subUrl, $forwardHeaders);
+
+        $subRawReq = 'GET ' . parse_url($subUrl, PHP_URL_PATH) . ' HTTP/1.1' . "\n"
+            . 'Host: ' . (parse_url($subUrl, PHP_URL_HOST) ?? '') . "\n";
+        foreach ($forwardHeaders as $h) {
+            $subRawReq .= $h . "\n";
+        }
+
+        $subRawResp = 'HTTP/1.1 ' . $subResult['code'] . "\n";
+        foreach ($subResult['headers'] as $k => $v) {
+            $subRawResp .= $k . ': ' . $v . "\n";
+        }
+        $subRawResp .= "\n" . $subResult['body'];
+
+        $debugData['sub_api_status']   = $subResult['code'];
+        $debugData['sub_api_ms']       = $subResult['ms'];
+        $debugData['sub_api_url']      = $subUrl;
+        $debugData['sub_raw_request']  = $subRawReq;
+        $debugData['sub_raw_response'] = $subRawResp;
+
+        $debugData['wl_api_status']   = 0;
+        $debugData['wl_api_ms']       = 0;
+        $debugData['wl_api_url']      = '';
+        $debugData['wl_raw_request']  = '';
+        $debugData['wl_raw_response'] = '';
+    } else if ($config['enable_wl'] ?? true) {
+        $wlSuffix = $config['wl_suffix'] ?? '_WL';
+        $wlUrl    = $base . '/api/sub/' . rawurlencode($shortUuid . $wlSuffix);
+        $wlResult = apiGet($wlUrl, $forwardHeaders);
+
+        $wlRawReq = 'GET ' . parse_url($wlUrl, PHP_URL_PATH) . ' HTTP/1.1' . "\n"
+            . 'Host: ' . (parse_url($wlUrl, PHP_URL_HOST) ?? '') . "\n";
+        foreach ($forwardHeaders as $h) {
+            $wlRawReq .= $h . "\n";
+        }
+
+        $wlRawResp = 'HTTP/1.1 ' . $wlResult['code'] . "\n";
+        foreach ($wlResult['headers'] as $k => $v) {
+            $wlRawResp .= $k . ': ' . $v . "\n";
+        }
+        $wlRawResp .= "\n" . $wlResult['body'];
+
+        $debugData['wl_api_status']   = $wlResult['code'];
+        $debugData['wl_api_ms']       = $wlResult['ms'];
+        $debugData['wl_api_url']      = $wlUrl;
+        $debugData['wl_raw_request']  = $wlRawReq;
+        $debugData['wl_raw_response'] = $wlRawResp;
+    } else {
+        $debugData['wl_api_status']   = 0;
+        $debugData['wl_api_ms']       = 0;
+        $debugData['wl_api_url']      = '(WL отключён в конфиге)';
+        $debugData['wl_raw_request']  = '';
+        $debugData['wl_raw_response'] = '';
+    }
+
+    renderHappDebug($debugData);
 }

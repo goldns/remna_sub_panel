@@ -3,13 +3,19 @@ declare(strict_types=1);
 
 $config = require __DIR__ . '/config.php';
 
+$_displayErrors = !empty($config['display_errors']) ? '1' : '0';
+ini_set('display_errors', $_displayErrors);
+ini_set('display_startup_errors', $_displayErrors);
+error_reporting(!empty($config['display_errors']) ? E_ALL : 0);
+
 require __DIR__ . '/functions.php';
 require __DIR__ . '/template.php';
 require __DIR__ . '/happ.php';
 require __DIR__ . '/browser.php';
 
-define('VERSION',      '1.4.3');
+define('VERSION',      '1.4.5');
 define('SHOW_VERSION', (bool) ($config['show_version'] ?? false));
+define('TEMPLATE_DIR', __DIR__ . '/templates/' . ($config['template'] ?? 'default'));
 define('PROJECT_NAME',     $config['project_name']     ?? '');
 define('SHOW_QR',          (bool) ($config['show_qr']          ?? false));
 define('COPYRIGHT',        $config['copyright']        ?? '');

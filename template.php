@@ -36,7 +36,7 @@ function renderErrorPage(int $code, string $message, ?array $debug = null): void
 {
     http_response_code($code);
     header('Content-Type: text/html; charset=utf-8');
-    include __DIR__ . '/templates/error-page.php';
+    include TEMPLATE_DIR . '/error-page.php';
 }
 
 function renderUserPanel(array $user, ?array $debug = null, ?array $wlUser = null, ?array $hwidInfo = null, string $supportUrl = ''): void
@@ -92,13 +92,13 @@ function renderUserPanel(array $user, ?array $debug = null, ?array $wlUser = nul
         ];
     }
 
-    include __DIR__ . '/templates/user-panel.php';
+    include TEMPLATE_DIR . '/user-panel.php';
 }
 
 function renderHappDebug(array $data): void
 {
     header('Content-Type: text/html; charset=utf-8');
-    include __DIR__ . '/templates/happ-debug.php';
+    include TEMPLATE_DIR . '/happ-debug.php';
 }
 
 function strategyLabel(string $strategy): string
