@@ -15,6 +15,17 @@ function resolveSubstituteUuid(string $status, array $config): string
     };
 }
 
+// Возвращает статус-специфичный announce или null (= не переопределять)
+function resolveStatusAnnounce(string $status, array $config): ?string
+{
+    return match($status) {
+        'limited'  => $config['announce_limited']  ?? null,
+        'disabled' => $config['announce_disabled'] ?? null,
+        'expired'  => $config['announce_expired']  ?? null,
+        default    => null,
+    };
+}
+
 function serveHapp(string $shortUuid, array $config): void
 {
     $ignored = array_flip(ignoredRequestHeaders());
@@ -73,14 +84,24 @@ function serveHapp(string $shortUuid, array $config): void
     applyConfigHeaderOverrides($config);
     applyHappFlags($config);
 
+    // Статус-специфичный announce перекрывает глобальный из конфига
+    $statusAnnounce = resolveStatusAnnounce($status, $config);
+    if ($statusAnnounce !== null) {
+        if ($statusAnnounce === '') {
+            header_remove('announce');
+        } else {
+            header('announce: base64:' . base64_encode($statusAnnounce));
+        }
+    }
+
     if ($isSubstitute) {
         // 5a. Слияние: оригинал + substitute (без WL)
         $subResult = apiGet($base . '/api/sub/' . rawurlencode($substituteUuid), $forwardHeaders);
         happOutputBody($result, $subResult['code'] === 200 ? $subResult : null, $config);
     } else {
-        // 5b. Активный пользователь: оригинал + WL (если включено)
+        // 5b. Активный пользователь: оригинал + WL (если включено и статус active)
         $extra = null;
-        if ($config['enable_wl'] ?? true) {
+        if (($config['enable_wl'] ?? true) && $status === 'active') {
             $wlSuffix = $config['wl_suffix'] ?? '_WL';
             $wlResult = apiGet($base . '/api/sub/' . rawurlencode($shortUuid . $wlSuffix), $forwardHeaders);
             if ($wlResult['code'] === 200) {
@@ -283,6 +304,16 @@ function serveHappDebugView(string $shortUuid, array $config): void
         if ($v !== null) $outHeaders[$k] = $v;
     }
 
+    // Статус-специфичный announce
+    $statusAnnounce = resolveStatusAnnounce($status, $config);
+    if ($statusAnnounce !== null) {
+        if ($statusAnnounce === '') {
+            unset($outHeaders['announce']);
+        } else {
+            $outHeaders['announce'] = 'base64:' . base64_encode($statusAnnounce);
+        }
+    }
+
     $rawReq = 'GET ' . parse_url($url, PHP_URL_PATH) . ' HTTP/1.1' . "\n"
         . 'Host: ' . (parse_url($url, PHP_URL_HOST) ?? '') . "\n";
     foreach ($forwardHeaders as $h) {
@@ -337,7 +368,7 @@ function serveHappDebugView(string $shortUuid, array $config): void
         $debugData['wl_api_url']      = '';
         $debugData['wl_raw_request']  = '';
         $debugData['wl_raw_response'] = '';
-    } else if ($config['enable_wl'] ?? true) {
+    } else if (($config['enable_wl'] ?? true) && $status === 'active') {
         $wlSuffix = $config['wl_suffix'] ?? '_WL';
         $wlUrl    = $base . '/api/sub/' . rawurlencode($shortUuid . $wlSuffix);
         $wlResult = apiGet($wlUrl, $forwardHeaders);
@@ -362,7 +393,9 @@ function serveHappDebugView(string $shortUuid, array $config): void
     } else {
         $debugData['wl_api_status']   = 0;
         $debugData['wl_api_ms']       = 0;
-        $debugData['wl_api_url']      = '(WL отключён в конфиге)';
+        $debugData['wl_api_url']      = $status !== 'active'
+            ? '(WL пропущен: статус ' . strtoupper($status) . ')'
+            : '(WL отключён в конфиге)';
         $debugData['wl_raw_request']  = '';
         $debugData['wl_raw_response'] = '';
     }
