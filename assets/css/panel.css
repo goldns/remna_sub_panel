@@ -259,6 +259,29 @@ body::after {
 }
 .hwid-device-seen { opacity: .7 }
 
+.hwid-wl-summary-grid { margin-bottom: 6px }
+
+.hwid-wl-separator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 6px;
+}
+.hwid-wl-separator::before,
+.hwid-wl-separator::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid #f0dfd0;
+}
+.hwid-wl-separator span {
+    font-size: .63rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: #3d1800;
+    white-space: nowrap;
+}
+
 .hwid-delete-btn {
     flex-shrink: 0;
     width: 26px;

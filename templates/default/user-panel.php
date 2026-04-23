@@ -141,6 +141,55 @@
                     <?php endforeach ?>
                 </div>
                 <?php endif ?>
+                <?php if (!empty($wlHwidInfo['devices'])): ?>
+                <div class="hwid-wl-separator">
+                    <span><?= t('wl', 'title') ?></span>
+                </div>
+                <div class="wl-grid hwid-summary-grid hwid-wl-summary-grid">
+                    <div class="item hwid-item-count">
+                        <div class="label"><?= t('hwid', 'count') ?></div>
+                        <div class="value"><?= $wlHwidInfo['count'] ?></div>
+                    </div>
+                    <div class="item hwid-item-limit">
+                        <div class="label"><?= t('hwid', 'limit') ?></div>
+                        <div class="value"><?= $wlHwidInfo['limit'] !== null ? $wlHwidInfo['limit'] : t('hwid', 'unlimited') ?></div>
+                    </div>
+                </div>
+                <div class="hwid-devices">
+                    <?php
+                    $wlSortedDevices = $wlHwidInfo['devices'];
+                    usort($wlSortedDevices, fn($a, $b) =>
+                        strtotime($b['updatedAt'] ?? '0') <=> strtotime($a['updatedAt'] ?? '0')
+                    );
+                    foreach ($wlSortedDevices as $device):
+                        $platformRaw = trim($device['platform'] ?? '');
+                        $platform    = strtolower($platformRaw);
+                        $model       = $device['deviceModel'] ?? '';
+                        $osVer       = $device['osVersion']   ?? '';
+                        $updatedAt   = $device['updatedAt']   ?? '';
+                        $lastSeen    = $updatedAt ? date('d.m.Y H:i', strtotime($updatedAt)) : '—';
+                        $ago         = $updatedAt ? timeAgo($updatedAt) : '—';
+                        $name        = $model !== '' ? $model : t('hwid', 'no_model');
+                        $metaParts   = array_filter([$platformRaw, $osVer]);
+                        $metaTop     = implode(' / ', $metaParts);
+                        $metaBottom  = t('hwid', 'last_seen') . ': ' . $ago . ' (' . $lastSeen . ')';
+                    ?>
+                    <div class="hwid-device" data-hwid="<?= htmlspecialchars($device['hwid'] ?? '') ?>" data-wl="1">
+                        <div class="hwid-device-icon"><?= hwidPlatformIcon($platform) ?></div>
+                        <div class="hwid-device-info">
+                            <div class="hwid-device-name"><?= htmlspecialchars($name) ?></div>
+                            <?php if ($metaTop !== ''): ?><div class="hwid-device-meta"><?= htmlspecialchars($metaTop) ?></div><?php endif ?>
+                            <div class="hwid-device-meta hwid-device-seen"><?= htmlspecialchars($metaBottom) ?></div>
+                        </div>
+                        <?php if (ALLOW_DELETE_HWID || DEBUG_MODE): ?>
+                        <button class="hwid-delete-btn" type="button" title="Удалить устройство" onclick="hwidDelete(this)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                        <?php endif ?>
+                    </div>
+                    <?php endforeach ?>
+                </div>
+                <?php endif ?>
             </div>
         </div>
     </div>
@@ -173,6 +222,7 @@ function hwidDelete(btn) {
     btn.disabled = true;
     var fd = new FormData();
     fd.append('hwid', hwid);
+    if (card.getAttribute('data-wl') === '1') fd.append('wl', '1');
     fetch(window.location.pathname + '?action=delete_hwid', { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })
         .then(function(d) {

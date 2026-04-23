@@ -24,9 +24,14 @@ function handleDeleteHwid(string $shortUuid, array $config): void
 
     $base       = rtrim($config['remnawave_url'], '/');
     $authHeader = 'Authorization: Bearer ' . $config['api_token'];
+    $isWl       = !empty($_POST['wl']);
+
+    $targetUuid = $isWl
+        ? $shortUuid . ($config['wl_suffix'] ?? '_WL')
+        : $shortUuid;
 
     $infoResult = apiGet(
-        $base . '/api/sub/' . rawurlencode($shortUuid) . '/info',
+        $base . '/api/sub/' . rawurlencode($targetUuid) . '/info',
         ['Accept: application/json', 'X-Forwarded-For: ' . clientIp(), $authHeader]
     );
 
@@ -172,11 +177,13 @@ function serveBrowser(string $shortUuid, array $config): void
     }
 
     // Загружаем информацию об HWID-устройствах (требуется api_token)
-    $hwidInfo = null;
+    $hwidInfo   = null;
+    $wlHwidInfo = null;
     if (!empty($config['api_token'])) {
         $authHeader      = 'Authorization: Bearer ' . $config['api_token'];
+        $base            = rtrim($config['remnawave_url'], '/');
         $username        = $user['username'] ?? '';
-        $userDetailUrl   = rtrim($config['remnawave_url'], '/') . '/api/users/by-username/' . rawurlencode($username);
+        $userDetailUrl   = $base . '/api/users/by-username/' . rawurlencode($username);
         $userDetailResult = apiGet($userDetailUrl, [$authHeader]);
 
         if ($userDetailResult['code'] === 200) {
@@ -191,7 +198,7 @@ function serveBrowser(string $shortUuid, array $config): void
             $hwidUrl       = null;
 
             if ($fullUuid) {
-                $hwidUrl       = rtrim($config['remnawave_url'], '/') . '/api/hwid/devices/' . rawurlencode($fullUuid);
+                $hwidUrl       = $base . '/api/hwid/devices/' . rawurlencode($fullUuid);
                 $hwidResult    = apiGet($hwidUrl, [$authHeader]);
                 $hwidApiStatus = $hwidResult['code'];
                 $hwidApiMs     = $hwidResult['ms'];
@@ -207,6 +214,28 @@ function serveBrowser(string $shortUuid, array $config): void
                 'count'   => $hwidCount,
                 'devices' => $hwidDevices,
             ];
+
+            // Загружаем HWID-устройства WL-пользователя
+            if ($wlUser !== null && ($config['enable_wl'] ?? true)) {
+                $wlUsername        = $wlUser['username'] ?? '';
+                $wlUserDetailResult = apiGet($base . '/api/users/by-username/' . rawurlencode($wlUsername), [$authHeader]);
+                if ($wlUserDetailResult['code'] === 200) {
+                    $wlUserDetail  = json_decode($wlUserDetailResult['body'], true);
+                    $wlFullUuid    = $wlUserDetail['response']['uuid']            ?? null;
+                    $wlHwidLimit   = $wlUserDetail['response']['hwidDeviceLimit'] ?? null;
+                    if ($wlFullUuid) {
+                        $wlHwidResult = apiGet($base . '/api/hwid/devices/' . rawurlencode($wlFullUuid), [$authHeader]);
+                        if ($wlHwidResult['code'] === 200) {
+                            $wlHwidData  = json_decode($wlHwidResult['body'], true);
+                            $wlHwidInfo  = [
+                                'limit'   => $wlHwidLimit,
+                                'count'   => (int) ($wlHwidData['response']['total']   ?? 0),
+                                'devices' => $wlHwidData['response']['devices'] ?? [],
+                            ];
+                        }
+                    }
+                }
+            }
 
             if ($debug !== null) {
                 $hwidRawReq = 'GET ' . parse_url($hwidUrl ?? $userDetailUrl, PHP_URL_PATH) . ' HTTP/1.1' . "\n"
@@ -255,5 +284,5 @@ function serveBrowser(string $shortUuid, array $config): void
         ? (string) $config['support_url']
         : ($result['headers']['support-url'] ?? '');
 
-    renderUserPanel($user, $debug, $wlUser, $hwidInfo, $supportUrl);
+    renderUserPanel($user, $debug, $wlUser, $hwidInfo, $supportUrl, $wlHwidInfo);
 }
