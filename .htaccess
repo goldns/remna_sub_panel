@@ -1,5 +1,10 @@
 Options -Indexes
 
+# Block all dot-files and dot-directories (.git, .env, .htaccess, etc.)
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
 # Block direct access to config and internal files
 <FilesMatch "^(config\.php|conf\.php|template\.php|functions\.php|happ\.php|browser\.php|.*\.cache)$">
     Require all denied
@@ -7,6 +12,9 @@ Options -Indexes
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Block dot-directories (.git/, .env/, etc.)
+    RewriteRule (^|/)\.(?!well-known) - [F,L]
 
     # Block direct access to internal directories and cache
     RewriteRule ^templates(/.*)?$ - [F,L]
