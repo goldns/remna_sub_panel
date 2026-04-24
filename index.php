@@ -13,7 +13,7 @@ require __DIR__ . '/template.php';
 require __DIR__ . '/happ.php';
 require __DIR__ . '/browser.php';
 
-define('VERSION',          '1.5.2');
+define('VERSION',          '1.5.5');
 define('SHOW_VERSION',     (bool) ($config['show_version'] ?? false));
 define('TEMPLATE_DIR',     __DIR__ . '/templates/' . ($config['template'] ?? 'default'));
 define('PROJECT_NAME',     $config['project_name']     ?? '');
@@ -68,6 +68,8 @@ if (DEBUG_MODE && isset($_GET['happ'])) {
         exit;
     }
     serveHapp($shortUuid, $config);
+} elseif (isCheckerRequest($config)) {
+    serveHapp($shortUuid, $config, $config['debug_hwid'] ?? '');
 } else {
     serveBrowser($shortUuid, $config);
 }

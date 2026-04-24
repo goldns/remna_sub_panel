@@ -461,3 +461,107 @@ body::after {
     color: #7a5838;
     border: 1px solid rgba(26,15,0,.1);
 }
+
+/* ── Server status ─────────────────────────────────────────── */
+
+.servers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+.servers-empty {
+    margin-top: 14px;
+    font-size: .82rem;
+    color: #7c4010;
+    text-align: center;
+    padding: 8px 0;
+}
+
+.server-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fdf5ee;
+    border-radius: 12px;
+    padding: 9px 14px;
+}
+
+.server-flag {
+    flex-shrink: 0;
+    border-radius: 2px;
+    display: block;
+}
+
+.server-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.server-dot.online  { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.55) }
+.server-dot.offline { background: #ef4444; }
+
+.server-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.server-name {
+    font-size: .82rem;
+    font-weight: 700;
+    color: #1a0800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.server-desc {
+    font-size: .72rem;
+    color: #9a6040;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.server-signal {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+    flex-shrink: 0;
+}
+.server-signal span {
+    width: 4px;
+    border-radius: 1px 1px 0 0;
+    background: #d8c8b8;
+}
+.server-signal span:nth-child(1) { height: 5px }
+.server-signal span:nth-child(2) { height: 9px }
+.server-signal span:nth-child(3) { height: 13px }
+
+.signal-3 span:nth-child(1),
+.signal-3 span:nth-child(2),
+.signal-3 span:nth-child(3) { background: #22c55e }
+
+.signal-2 span:nth-child(1),
+.signal-2 span:nth-child(2) { background: #f59e0b }
+
+.signal-1 span:nth-child(1) { background: #ef4444 }
+
+.signal-0 { position: relative }
+.signal-0 span { background: #d8c8b8 !important }
+.signal-0::after {
+    content: '✕';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 9px;
+    color: #ef4444;
+    line-height: 1;
+}

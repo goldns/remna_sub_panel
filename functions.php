@@ -71,6 +71,45 @@ function ipInCidr(string $ip, string $cidr): bool
     return ($ipLong & $mask) === ($subnetLong & $mask);
 }
 
+// Проверяет, соответствует ли запрос одной из записей checkers в конфиге.
+// Каждая запись — массив с необязательными ключами 'ip' (строка/массив IP или CIDR) и 'ua' (подстрока UA).
+// Оба указанных условия должны совпасть (AND). Не указанное условие не проверяется.
+function isCheckerRequest(array $config): bool
+{
+    $checkers = $config['checkers'] ?? [];
+    if (empty($checkers)) return false;
+
+    $clientIp  = clientIp();
+    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+
+    foreach ($checkers as $checker) {
+        $ipOk = true;
+        $uaOk = true;
+
+        if (!empty($checker['ip'])) {
+            $entries = is_array($checker['ip']) ? $checker['ip'] : [$checker['ip']];
+            $ipOk = false;
+            foreach ($entries as $entry) {
+                $entry = trim((string) $entry);
+                if ($entry === '') continue;
+                if (str_contains($entry, '/')) {
+                    if (ipInCidr($clientIp, $entry)) { $ipOk = true; break; }
+                } elseif ($clientIp === $entry) {
+                    $ipOk = true; break;
+                }
+            }
+        }
+
+        if (!empty($checker['ua'])) {
+            $uaOk = str_contains($userAgent, $checker['ua']);
+        }
+
+        if ($ipOk && $uaOk) return true;
+    }
+
+    return false;
+}
+
 // Полный URL текущего запроса (используется для profile-web-page-url)
 function currentUrl(): string
 {
@@ -94,7 +133,7 @@ function clientIp(): string
 }
 
 // GET-запрос к API Remnawave, возвращает код, заголовки, тело и время выполнения
-function apiGet(string $url, array $extraHeaders = []): array
+function apiGet(string $url, array $extraHeaders = [], int $timeout = 10): array
 {
     $responseHeaders = [];
 
@@ -102,7 +141,7 @@ function apiGet(string $url, array $extraHeaders = []): array
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER     => $extraHeaders,
-        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_TIMEOUT        => $timeout,
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_ENCODING       => '', // принять любое сжатие, распаковать автоматически
         CURLOPT_HEADERFUNCTION => function ($_, $header) use (&$responseHeaders) {

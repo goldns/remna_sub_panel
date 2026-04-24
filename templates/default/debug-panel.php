@@ -85,6 +85,28 @@
                 <?php endif ?>
             </div>
             <?php endif ?>
+            <?php if (isset($debug['checker'])): ?>
+            <?php $chk = $debug['checker'] ?>
+            <div class="dbg-section">
+                <div class="dbg-title">🖧 xray-checker</div>
+                <?php if ($chk === null): ?>
+                <div class="dbg-row"><span>Статус</span><code style="color:#94a3b8">Отключён (checker_url пустой)</code></div>
+                <?php else: ?>
+                <?php $chkColor = $chk['success'] ? '#4ade80' : '#f87171' ?>
+                <div class="dbg-row">
+                    <span><?= t('debug', 'label_status') ?></span>
+                    <code style="color:<?= $chkColor ?>"><?= $chk['code'] ?> · <?= $chk['ms'] ?> <?= t('debug', 'label_ms') ?> — <?= $chk['success'] ? 'OK' : 'FAIL' ?></code>
+                </div>
+                <div class="dbg-row"><span>URL</span><code><?= htmlspecialchars($chk['url']) ?></code></div>
+                <?php if ($chk['success']): ?>
+                <div class="dbg-row">
+                    <span>Серверов</span>
+                    <code>всего <?= $chk['total'] ?> · показано <?= $chk['shown'] ?> · скрыто <?= $chk['hidden'] ?></code>
+                </div>
+                <?php endif ?>
+                <?php endif ?>
+            </div>
+            <?php endif ?>
             <?php if (isset($debug['encrypt'])): ?>
             <?php $enc = $debug['encrypt'] ?>
             <div class="dbg-section">
@@ -134,6 +156,10 @@
             <?php if (!empty($debug['hwid_raw_response'])): ?>
             <div class="dbg-label" style="margin-top:12px">📱 HWID Devices</div>
             <div class="dbg-raw" id="dbg-raw-resp-hwid" data-raw="<?= htmlspecialchars($debug['hwid_raw_response']) ?>"></div>
+            <?php endif ?>
+            <?php if (!empty($debug['checker']['url'])): ?>
+            <div class="dbg-label" style="margin-top:12px">🖧 xray-checker</div>
+            <div class="dbg-raw" id="dbg-raw-resp-checker" data-raw="<?= htmlspecialchars($debug['checker']['body'] ?: '(empty)') ?>"></div>
             <?php endif ?>
             <?php if (!empty($debug['encrypt']['api_url'])): ?>
             <div class="dbg-label" style="margin-top:12px"><?= t('debug', 'label_encrypt_api') ?></div>

@@ -39,7 +39,7 @@ function renderErrorPage(int $code, string $message, ?array $debug = null): void
     include TEMPLATE_DIR . '/error-page.php';
 }
 
-function renderUserPanel(array $user, ?array $debug = null, ?array $wlUser = null, ?array $hwidInfo = null, string $supportUrl = '', ?array $wlHwidInfo = null): void
+function renderUserPanel(array $user, ?array $debug = null, ?array $wlUser = null, ?array $hwidInfo = null, string $supportUrl = '', ?array $wlHwidInfo = null, ?array $checkerProxies = null): void
 {
     header('Content-Type: text/html; charset=utf-8');
 

@@ -5,6 +5,101 @@ declare(strict_types=1);
 // Браузер — рендер панели пользователя
 // ---------------------------------------------------------------------------
 
+function fetchCheckerProxies(array $config): ?array
+{
+    $url = trim($config['checker_url'] ?? '');
+    if ($url === '') {
+        $GLOBALS['__checker_debug'] = null;
+        return null;
+    }
+
+    $timeout = max(1, (int) ($config['checker_timeout'] ?? 2));
+    $result  = apiGet($url, ['Accept: application/json'], $timeout);
+
+    if ($result['code'] !== 200) {
+        $GLOBALS['__checker_debug'] = [
+            'url'     => $url,
+            'code'    => $result['code'],
+            'ms'      => $result['ms'],
+            'body'    => $result['body'],
+            'total'   => 0,
+            'shown'   => 0,
+            'hidden'  => 0,
+            'success' => false,
+        ];
+        return null;
+    }
+
+    $data = json_decode($result['body'], true);
+    if (!($data['success'] ?? false) || !is_array($data['data'] ?? null)) {
+        $GLOBALS['__checker_debug'] = [
+            'url'     => $url,
+            'code'    => $result['code'],
+            'ms'      => $result['ms'],
+            'body'    => $result['body'],
+            'total'   => 0,
+            'shown'   => 0,
+            'hidden'  => 0,
+            'success' => false,
+        ];
+        return null;
+    }
+
+    $hideServers = array_flip($config['checker_hide_servers'] ?? []);
+
+    $proxies = [];
+    foreach ($data['data'] as $proxy) {
+        if (isset($hideServers[$proxy['server'] ?? ''])) continue;
+        // Извлекаем ?serverDescription=<base64> из имени
+        $name = (string) ($proxy['name'] ?? '');
+        $desc = null;
+        if (($qpos = strpos($name, '?serverDescription=')) !== false) {
+            $encoded = substr($name, $qpos + strlen('?serverDescription='));
+            $name    = substr($name, 0, $qpos);
+            $decoded = base64_decode($encoded, true);
+            if ($decoded !== false && $decoded !== '') {
+                $desc = $decoded;
+            }
+        }
+        $name = trim($name);
+        $proxy['description'] = $desc;
+
+        // Извлекаем флаг-эмодзи (пара региональных индикаторов U+1F1E6–U+1F1FF)
+        $chars = mb_str_split($name);
+        $cp1   = isset($chars[0]) ? mb_ord($chars[0]) : 0;
+        $cp2   = isset($chars[1]) ? mb_ord($chars[1]) : 0;
+        $flagCode = null;
+        if ($cp1 >= 0x1F1E6 && $cp1 <= 0x1F1FF && $cp2 >= 0x1F1E6 && $cp2 <= 0x1F1FF) {
+            $flagCode = strtolower(chr($cp1 - 0x1F1E6 + 65) . chr($cp2 - 0x1F1E6 + 65));
+            $name     = ltrim(mb_substr($name, 2));
+        }
+
+        $proxy['name']      = $name;
+        $proxy['flag_code'] = $flagCode;
+        $proxies[] = $proxy;
+    }
+
+    $total  = count($data['data']);
+    $shown  = count($proxies);
+
+    $GLOBALS['__checker_debug'] = [
+        'url'     => $url,
+        'code'    => $result['code'],
+        'ms'      => $result['ms'],
+        'body'    => $result['body'],
+        'total'   => $total,
+        'shown'   => $shown,
+        'hidden'  => $total - $shown,
+        'success' => true,
+    ];
+
+    return [
+        'proxies'      => $proxies,
+        'latency_good' => max(1, (int) ($config['checker_latency_good'] ?? 500)),
+        'latency_ok'   => max(1, (int) ($config['checker_latency_ok']   ?? 1000)),
+    ];
+}
+
 function handleDeleteHwid(string $shortUuid, array $config): void
 {
     header('Content-Type: application/json');
@@ -292,5 +387,11 @@ function serveBrowser(string $shortUuid, array $config): void
         ? (string) $config['support_url']
         : ($result['headers']['support-url'] ?? '');
 
-    renderUserPanel($user, $debug, $wlUser, $hwidInfo, $supportUrl, $wlHwidInfo);
+    $checkerProxies = fetchCheckerProxies($config);
+
+    if ($debug !== null) {
+        $debug['checker'] = $GLOBALS['__checker_debug'] ?? null;
+    }
+
+    renderUserPanel($user, $debug, $wlUser, $hwidInfo, $supportUrl, $wlHwidInfo, $checkerProxies);
 }

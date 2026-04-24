@@ -292,6 +292,13 @@ return [
         ],
     ],
 
+    // Server status section
+    'servers' => [
+        'title'   => '🖧 Состояние серверов',
+        'empty'   => 'Нет серверов для отображения',
+        'offline' => 'Недоступен',
+    ],
+
     // Happ debug page (?happ)
     'happ_debug' => [
         'title'           => '🛠️ Happ Debug View',

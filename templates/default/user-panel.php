@@ -195,6 +195,53 @@
     </div>
     <?php endif ?>
 
+    <?php if ($checkerProxies !== null): ?>
+    <div class="card guide-card">
+        <button class="guide-toggle" onclick="serversToggle()" aria-expanded="false" type="button">
+            <span class="guide-title"><?= t('servers', 'title') ?></span>
+            <svg class="guide-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6"/></svg>
+        </button>
+        <div class="guide-body" id="servers-body">
+            <div class="guide-body-inner">
+                <?php if (empty($checkerProxies['proxies'])): ?>
+                <div class="servers-empty"><?= t('servers', 'empty') ?></div>
+                <?php else: ?>
+                <?php $latGood = $checkerProxies['latency_good']; $latOk = $checkerProxies['latency_ok']; ?>
+                <div class="servers-list">
+                    <?php foreach ($checkerProxies['proxies'] as $proxy): ?>
+                    <?php
+                        $online  = (bool) ($proxy['online'] ?? false);
+                        $latency = (int)  ($proxy['latencyMs'] ?? 0);
+                    ?>
+                    <?php
+                        $flagCode = $proxy['flag_code'] ?? null;
+                        $sigLevel = $online && $latency > 0
+                            ? ($latency < $latGood ? 3 : ($latency < $latOk ? 2 : 1))
+                            : 0;
+                    ?>
+                    <div class="server-row">
+                        <span class="server-dot <?= $online ? 'online' : 'offline' ?>"></span>
+                        <?php if ($flagCode): ?>
+                        <img class="server-flag" src="https://flagcdn.com/16x12/<?= htmlspecialchars($flagCode) ?>.png" srcset="https://flagcdn.com/32x24/<?= htmlspecialchars($flagCode) ?>.png 2x" width="16" height="12" alt="<?= htmlspecialchars(strtoupper($flagCode)) ?>">
+                        <?php endif ?>
+                        <div class="server-info">
+                            <span class="server-name"><?= htmlspecialchars($proxy['name'] ?? '') ?></span>
+                            <?php if (!empty($proxy['description'])): ?>
+                            <span class="server-desc"><?= htmlspecialchars($proxy['description']) ?></span>
+                            <?php endif ?>
+                        </div>
+                        <span class="server-signal signal-<?= $sigLevel ?>" title="<?= $sigLevel > 0 ? $latency . ' ms' : t('servers', 'offline') ?>">
+                            <span></span><span></span><span></span>
+                        </span>
+                    </div>
+                    <?php endforeach ?>
+                </div>
+                <?php endif ?>
+            </div>
+        </div>
+    </div>
+    <?php endif ?>
+
     <?php if (SHOW_VERSION || COPYRIGHT !== ''): ?>
     <div class="footer">
         <?php if (COPYRIGHT !== ''): ?>
@@ -208,6 +255,13 @@
 </div>
 <?php if ($debug !== null) include __DIR__ . '/debug-panel.php'; ?>
 <script>
+function serversToggle() {
+    var btn  = document.querySelector('[onclick="serversToggle()"]');
+    var body = document.getElementById('servers-body');
+    var open = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    body.classList.toggle('open', !open);
+}
 function hwidToggle() {
     var btn  = document.querySelector('[onclick="hwidToggle()"]');
     var body = document.getElementById('hwid-body');

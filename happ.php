@@ -26,15 +26,21 @@ function resolveStatusAnnounce(string $status, array $config): ?string
     };
 }
 
-function serveHapp(string $shortUuid, array $config): void
+function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): void
 {
     $ignored = array_flip(ignoredRequestHeaders());
 
+    $checkerMode = $forceHwid !== '';
     $forwardHeaders = [];
     foreach (getallheaders() as $name => $value) {
         if (!isset($ignored[strtolower($name)])) {
+            if ($checkerMode && strtolower($name) === 'user-agent') continue;
             $forwardHeaders[] = $name . ': ' . $value;
         }
+    }
+    if ($checkerMode) {
+        $forwardHeaders[] = 'User-Agent: Happ/2.7.0/Windows/checker';
+        $forwardHeaders[] = 'X-HWID: ' . $forceHwid;
     }
     if (!empty($config['api_token'])) {
         $forwardHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
