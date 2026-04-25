@@ -79,10 +79,12 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
     }
 
     // 4. Форвардим заголовки оригинального пользователя
+    // Заголовки из wl_headers_forward глушатся здесь и выставляются позже из WL (или fallback на main)
     $ignoredResp     = array_flip(ignoredResponseHeaders());
     $overrideRouting = ($config['happ_routing'] ?? null) !== null;
+    $wlInherit       = array_flip(array_map('strtolower', $config['wl_headers_forward'] ?? ['subscription-userinfo']));
     foreach ($result['headers'] as $name => $value) {
-        if (!isset($ignoredResp[$name]) && !($overrideRouting && $name === 'routing')) {
+        if (!isset($ignoredResp[$name]) && !($overrideRouting && $name === 'routing') && !isset($wlInherit[$name])) {
             header($name . ': ' . $value);
         }
     }
@@ -102,6 +104,12 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
 
     if ($isSubstitute) {
         // 5a. Слияние: оригинал + substitute (без WL)
+        // wl_headers_forward: WL не делается, берём из main
+        foreach (array_keys($wlInherit) as $hname) {
+            if (isset($result['headers'][$hname])) {
+                header($hname . ': ' . $result['headers'][$hname]);
+            }
+        }
         $subResult = apiGet($base . '/api/sub/' . rawurlencode($substituteUuid), $forwardHeaders);
         happOutputBody($result, $subResult['code'] === 200 ? $subResult : null, $config);
     } else {
@@ -112,6 +120,14 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
             $wlResult = apiGet($base . '/api/sub/' . rawurlencode($shortUuid . $wlSuffix), $forwardHeaders);
             if ($wlResult['code'] === 200) {
                 $extra = $wlResult;
+            }
+        }
+        // wl_headers_forward: предпочитаем значение из WL, fallback на main
+        foreach (array_keys($wlInherit) as $hname) {
+            $val = ($extra !== null ? ($extra['headers'][$hname] ?? null) : null)
+                ?? ($result['headers'][$hname] ?? null);
+            if ($val !== null) {
+                header($hname . ': ' . $val);
             }
         }
         happOutputBody($result, $extra, $config);
