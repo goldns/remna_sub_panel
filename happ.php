@@ -102,6 +102,8 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
         }
     }
 
+    $shuffleMain = $status === 'active' && !empty($config['shuffle_servers']);
+
     if ($isSubstitute) {
         // 5a. Слияние: оригинал + substitute (без WL)
         // wl_headers_forward: WL не делается, берём из main
@@ -130,18 +132,34 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
                 header($hname . ': ' . $val);
             }
         }
-        happOutputBody($result, $extra, $config);
+        happOutputBody($result, $extra, $config, $shuffleMain);
+    }
+}
+
+// Fisher-Yates с криптографической случайностью (random_int → /dev/urandom / CryptGenRandom).
+// В отличие от shuffle(), не зависит от состояния Mersenne Twister.
+function cryptoShuffle(array &$arr): void
+{
+    for ($i = count($arr) - 1; $i > 0; $i--) {
+        $j = random_int(0, $i);
+        [$arr[$i], $arr[$j]] = [$arr[$j], $arr[$i]];
     }
 }
 
 // Склеивает тело $main с телом $extra (null = только main) и отправляет клиенту.
 // Формат определяется по content-type основного ответа.
-function happOutputBody(array $main, ?array $extra, array $config): void
+// $shuffleMain = true — перемешать серверы основной подписки перед склейкой (только ACTIVE, не WL).
+function happOutputBody(array $main, ?array $extra, array $config, bool $shuffleMain = false): void
 {
     $contentType = $main['headers']['content-type'] ?? '';
 
     if (str_contains($contentType, 'text/plain')) {
         $body = base64_decode(trim($main['body']), true);
+        if ($body !== false && $shuffleMain) {
+            $lines = array_values(array_filter(explode("\n", $body), fn($l) => trim($l) !== ''));
+            cryptoShuffle($lines);
+            $body = implode("\n", $lines);
+        }
         if ($extra !== null) {
             $extraBody = base64_decode(trim($extra['body']), true);
             if ($body !== false && $extraBody !== false) {
@@ -155,6 +173,9 @@ function happOutputBody(array $main, ?array $extra, array $config): void
         echo $body !== false ? base64_encode($body) : $main['body'];
     } else {
         $decoded = json_decode($main['body']);
+        if ($shuffleMain && is_array($decoded)) {
+            cryptoShuffle($decoded);
+        }
         if ($extra !== null) {
             $extraDecoded = json_decode($extra['body']);
             if (is_array($decoded) && is_array($extraDecoded)) {
