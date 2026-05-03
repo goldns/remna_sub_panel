@@ -39,7 +39,23 @@ function renderErrorPage(int $code, string $message, ?array $debug = null): void
     include TEMPLATE_DIR . '/error-page.php';
 }
 
-function renderUserPanel(array $user, ?array $debug = null, ?array $wlUser = null, ?array $hwidInfo = null, string $supportUrl = '', ?array $wlHwidInfo = null, ?array $checkerProxies = null): void
+// Строит URL для кнопки «Продлить» из шаблона. Плейсхолдеры:
+//   {shortUuid}       — shortUuid из URL
+//   {uuid}            — полный UUID пользователя (требует api_token)
+//   {B64:FIELDNAME}   — base64_encode поля user[fieldname] (напр. {B64:USERNAME})
+function buildRenewUrl(string $template, string $shortUuid, array $user, string $fullUuid = ''): string
+{
+    $result = str_replace('{shortUuid}', $shortUuid, $template);
+    if ($fullUuid !== '') {
+        $result = str_replace('{uuid}', $fullUuid, $result);
+    }
+    return (string) preg_replace_callback('/\{B64:([A-Za-z_]+)\}/', function ($m) use ($user) {
+        $value = $user[strtolower($m[1])] ?? '';
+        return base64_encode((string) $value);
+    }, $result);
+}
+
+function renderUserPanel(array $user, ?array $debug = null, ?array $wlUser = null, ?array $hwidInfo = null, string $supportUrl = '', ?array $wlHwidInfo = null, ?array $checkerProxies = null, string $renewUrl = '', string $renewUrlTg = ''): void
 {
     header('Content-Type: text/html; charset=utf-8');
 

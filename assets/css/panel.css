@@ -48,10 +48,10 @@ body::after {
 
 .site-header {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
     margin-bottom: 16px;
-    gap: 12px;
+    gap: 10px;
 }
 
 .site-title {
@@ -71,7 +71,7 @@ body::after {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
 .site-link-btn {
@@ -90,6 +90,25 @@ body::after {
 }
 
 .site-link-btn:hover { background: rgba(255,255,255,.38); }
+
+.renew-btn {
+    height: 38px;
+    padding: 0 15px;
+    border-radius: 19px;
+    background: rgba(255,255,255,.22);
+    color: #fff;
+    font-family: inherit;
+    font-size: .85rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    transition: background .18s;
+}
+
+.renew-btn:hover { background: rgba(255,255,255,.38); }
 
 /* ── Card ── */
 .card {

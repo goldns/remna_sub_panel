@@ -393,5 +393,17 @@ function serveBrowser(string $shortUuid, array $config): void
         $debug['checker'] = $GLOBALS['__checker_debug'] ?? null;
     }
 
-    renderUserPanel($user, $debug, $wlUser, $hwidInfo, $supportUrl, $wlHwidInfo, $checkerProxies);
+    $renewUuid = isset($userDetail) ? ($userDetail['response']['uuid'] ?? '') : '';
+
+    $renewUrl = '';
+    if (($config['payment_url'] ?? '') !== '') {
+        $renewUrl = buildRenewUrl($config['payment_url'], $shortUuid, $user, $renewUuid);
+    }
+
+    $renewUrlTg = '';
+    if (($config['payment_url_tg'] ?? '') !== '') {
+        $renewUrlTg = buildRenewUrl($config['payment_url_tg'], $shortUuid, $user, $renewUuid);
+    }
+
+    renderUserPanel($user, $debug, $wlUser, $hwidInfo, $supportUrl, $wlHwidInfo, $checkerProxies, $renewUrl, $renewUrlTg);
 }

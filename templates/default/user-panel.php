@@ -13,7 +13,7 @@
 </head>
 <body>
 <div class="container">
-    <?php if (PROJECT_NAME !== '' || SHOW_QR || $supportUrl !== ''): ?>
+    <?php if (PROJECT_NAME !== '' || SHOW_QR || $supportUrl !== '' || $renewUrl !== '' || $renewUrlTg !== ''): ?>
     <div class="site-header">
         <div class="site-title">
             <?= htmlspecialchars(PROJECT_NAME) ?>
@@ -22,6 +22,16 @@
             <?php endif ?>
         </div>
         <div class="site-links">
+            <?php if ($renewUrl !== ''): ?>
+            <a class="renew-btn" href="<?= htmlspecialchars($renewUrl) ?>" target="_blank" rel="noopener noreferrer">
+                <?= t('panel', 'renew_btn') ?>
+            </a>
+            <?php endif ?>
+            <?php if ($renewUrlTg !== ''): ?>
+            <a class="renew-btn" href="<?= htmlspecialchars($renewUrlTg) ?>" target="_blank" rel="noopener noreferrer">
+                <?= t('panel', 'renew_btn_tg') ?>
+            </a>
+            <?php endif ?>
             <?php if (SHOW_QR): ?>
             <button class="site-link-btn" id="qr-btn" title="QR-код" type="button">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">

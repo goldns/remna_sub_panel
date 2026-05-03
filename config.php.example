@@ -168,6 +168,22 @@ return [
     // Ссылка на Telegram или поддержку. Также показывается как кнопка в шапке браузера.
     'support_url' => null,
 
+    // URL для кнопки «Продлить» в шапке браузерной панели. Пусто = скрыть кнопку.
+    // Доступные плейсхолдеры:
+    //   {shortUuid}      — shortUuid пользователя из URL
+    //   {uuid}           — полный UUID пользователя (требует api_token)
+    //   {B64:USERNAME}   — base64 от имени пользователя (поддерживается любое поле: USERNAME, EMAIL и т.д.)
+    // Примеры:
+    //   'payment_url' => 'https://payment.example.com/pay/{shortUuid}'
+    //   'payment_url' => 'https://payment.example.com/pay/{uuid}'
+    //   'payment_url' => 'https://t.me/bot?start={B64:USERNAME}'
+    'payment_url' => '',
+
+    // URL для кнопки «Продлить в TG» — ссылка на Telegram-бота оплаты.
+    // Поддерживает те же плейсхолдеры что и payment_url.
+    // Пусто = скрыть кнопку.
+    'payment_url_tg' => '',
+
     // Имя файла подписки в заголовке Content-Disposition
     'content_disposition_name' => null,
 

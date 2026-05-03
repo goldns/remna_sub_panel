@@ -17,6 +17,8 @@ return [
         'today'         => 'Сегодня',
         'expired_days'  => 'Истёк',
         'days_suffix'   => ' д.',
+        'renew_btn'     => 'Продлить',
+        'renew_btn_tg'  => 'Продлить в Телеграмм',
     ],
 
     // User status badges
