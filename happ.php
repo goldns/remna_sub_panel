@@ -71,10 +71,12 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
         $infoHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
     }
     $infoResult = apiGet($base . '/api/sub/' . rawurlencode($shortUuid) . '/info', $infoHeaders);
-    $status = 'active';
+    $status   = 'active';
+    $daysLeft = -1;
     if ($infoResult['code'] === 200) {
         $infoData = json_decode($infoResult['body'], true);
         $status   = strtolower($infoData['response']['user']['userStatus'] ?? 'active');
+        $daysLeft = (int) ($infoData['response']['user']['daysLeft'] ?? -1);
     }
 
     // 2. UUID подмены (пустая строка = не задан = работать как обычно)
@@ -117,12 +119,19 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
     // Grace-период для EXPIRED: если задан expired_grace_days > 0,
     // слияние с user_expired делается только пока не прошло N дней после expire-timestamp.
     // expire берётся из заголовка subscription-userinfo основного ответа.
+    // {EXP_DAY} заменяется на кол-во дней, оставшихся до конца grace-периода.
     if ($isSubstitute && $status === 'expired') {
         $graceDays = (int) ($config['expired_grace_days'] ?? 0);
         if ($graceDays > 0) {
             $expireTs = parseSubscriptionExpire($result['headers']['subscription-userinfo'] ?? '');
-            if ($expireTs > 0 && time() - $expireTs > $graceDays * 86400) {
-                $isSubstitute = false;
+            if ($expireTs > 0) {
+                $secsRemaining = $expireTs + $graceDays * 86400 - time();
+                if ($secsRemaining <= 0) {
+                    $isSubstitute = false;
+                    $daysLeft     = 0;
+                } else {
+                    $daysLeft = max(1, (int) ceil($secsRemaining / 86400));
+                }
             }
         }
     }
@@ -130,15 +139,17 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
     $shuffleMain = $status === 'active' && !empty($config['shuffle_servers']);
 
     if ($isSubstitute) {
-        // 5a. Слияние: оригинал + substitute (без WL)
+        // 5a. Substitute: заголовки от оригинала, тело от substitute.
+        // EXPIRED — полная замена тела; LIMITED/DISABLED — слияние (конкатенация/array_merge).
         // wl_headers_forward: WL не делается, берём из main
         foreach (array_keys($wlInherit) as $hname) {
             if (isset($result['headers'][$hname])) {
                 header($hname . ': ' . $result['headers'][$hname]);
             }
         }
-        $subResult = apiGet($base . '/api/sub/' . rawurlencode($substituteUuid), $forwardHeaders);
-        happOutputBody($result, $subResult['code'] === 200 ? $subResult : null, $config);
+        $subResult   = apiGet($base . '/api/sub/' . rawurlencode($substituteUuid), $forwardHeaders);
+        $replaceBody = ($status === 'expired');
+        happOutputBody($result, $subResult['code'] === 200 ? $subResult : null, $config, false, $daysLeft, $replaceBody);
     } else {
         // 5b. Активный пользователь: оригинал + WL (если включено и статус active)
         $extra = null;
@@ -157,7 +168,7 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
                 header($hname . ': ' . $val);
             }
         }
-        happOutputBody($result, $extra, $config, $shuffleMain);
+        happOutputBody($result, $extra, $config, $shuffleMain, $daysLeft);
     }
 }
 
@@ -171,45 +182,61 @@ function cryptoShuffle(array &$arr): void
     }
 }
 
-// Склеивает тело $main с телом $extra (null = только main) и отправляет клиенту.
-// Формат определяется по content-type основного ответа.
-// $shuffleMain = true — перемешать серверы основной подписки перед склейкой (только ACTIVE, не WL).
-function happOutputBody(array $main, ?array $extra, array $config, bool $shuffleMain = false): void
+// Формирует тело ответа из $main + $extra и отправляет клиенту.
+// Формат (text/plain base64 или JSON) определяется по content-type основного ответа.
+// $shuffleMain  — перемешать серверы основной подписки (только ACTIVE, не WL).
+// $daysLeft     — заменить {EXP_DAY} в именах серверов (>= 0 = заменить).
+// $replaceBody  — true: тело берётся целиком из $extra (EXPIRED); false: слияние (LIMITED/DISABLED/WL).
+function happOutputBody(array $main, ?array $extra, array $config, bool $shuffleMain = false, int $daysLeft = -1, bool $replaceBody = false): void
 {
     $contentType = $main['headers']['content-type'] ?? '';
 
     if (str_contains($contentType, 'text/plain')) {
-        $body = base64_decode(trim($main['body']), true);
-        if ($body !== false && $shuffleMain) {
-            $lines = array_values(array_filter(explode("\n", $body), fn($l) => trim($l) !== ''));
-            cryptoShuffle($lines);
-            $body = implode("\n", $lines);
-        }
-        if ($extra !== null) {
-            $extraBody = base64_decode(trim($extra['body']), true);
-            if ($body !== false && $extraBody !== false) {
-                $body = rtrim($body) . "\n" . ltrim($extraBody);
+        if ($replaceBody && $extra !== null) {
+            $body = base64_decode(trim($extra['body']), true);
+        } else {
+            $body = base64_decode(trim($main['body']), true);
+            if ($body !== false && $shuffleMain) {
+                $lines = array_values(array_filter(explode("\n", $body), fn($l) => trim($l) !== ''));
+                cryptoShuffle($lines);
+                $body = implode("\n", $lines);
             }
+            if (!$replaceBody && $extra !== null) {
+                $extraBody = base64_decode(trim($extra['body']), true);
+                if ($body !== false && $extraBody !== false) {
+                    $body = rtrim($body) . "\n" . ltrim($extraBody);
+                }
+            }
+        }
+        if ($daysLeft >= 0 && $body !== false) {
+            $body = str_replace(['{EXP_DAY}', '%7BEXP_DAY%7D'], (string) $daysLeft, $body);
         }
         if (!empty($config['happ_routing']) && $body !== false) {
             $body = $config['happ_routing'] . "\n" . ltrim($body);
         }
         header('Content-Type: text/plain; charset=utf-8');
-        echo $body !== false ? base64_encode($body) : $main['body'];
+        echo $body !== false ? base64_encode($body) : ($replaceBody && $extra ? $extra['body'] : $main['body']);
     } else {
-        $decoded = json_decode($main['body']);
-        if ($shuffleMain && is_array($decoded)) {
-            cryptoShuffle($decoded);
-        }
-        if ($extra !== null) {
-            $extraDecoded = json_decode($extra['body']);
-            if (is_array($decoded) && is_array($extraDecoded)) {
-                $decoded = array_merge($decoded, $extraDecoded);
+        if ($replaceBody && $extra !== null) {
+            $decoded = json_decode($extra['body']);
+        } else {
+            $decoded = json_decode($main['body']);
+            if ($shuffleMain && is_array($decoded)) {
+                cryptoShuffle($decoded);
+            }
+            if (!$replaceBody && $extra !== null) {
+                $extraDecoded = json_decode($extra['body']);
+                if (is_array($decoded) && is_array($extraDecoded)) {
+                    $decoded = array_merge($decoded, $extraDecoded);
+                }
             }
         }
         $responseBody = $decoded !== null
             ? json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-            : $main['body'];
+            : ($replaceBody && $extra ? $extra['body'] : $main['body']);
+        if ($daysLeft >= 0) {
+            $responseBody = str_replace('{EXP_DAY}', (string) $daysLeft, $responseBody);
+        }
         $routing = $config['happ_routing'] ?? null;
         if ($routing !== null) {
             if ($routing === '') {

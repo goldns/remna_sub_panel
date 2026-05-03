@@ -13,7 +13,7 @@ require __DIR__ . '/template.php';
 require __DIR__ . '/happ.php';
 require __DIR__ . '/browser.php';
 
-define('VERSION',          '1.6.4');
+define('VERSION',          '1.6.7');
 define('SHOW_VERSION',     (bool) ($config['show_version'] ?? false));
 define('TEMPLATE_DIR',     __DIR__ . '/templates/' . ($config['template'] ?? 'default'));
 define('PROJECT_NAME',     $config['project_name']     ?? '');
