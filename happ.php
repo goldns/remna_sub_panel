@@ -26,6 +26,18 @@ function resolveStatusAnnounce(string $status, array $config): ?string
     };
 }
 
+// Парсит expire=TIMESTAMP из заголовка subscription-userinfo. Возвращает 0 если не найден.
+function parseSubscriptionExpire(string $header): int
+{
+    foreach (explode(';', $header) as $part) {
+        [$k, $v] = array_pad(explode('=', trim($part), 2), 2, '');
+        if (trim($k) === 'expire') {
+            return (int) $v;
+        }
+    }
+    return 0;
+}
+
 function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): void
 {
     $ignored = array_flip(ignoredRequestHeaders());
@@ -99,6 +111,19 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
             header_remove('announce');
         } else {
             header('announce: base64:' . base64_encode($statusAnnounce));
+        }
+    }
+
+    // Grace-период для EXPIRED: если задан expired_grace_days > 0,
+    // слияние с user_expired делается только пока не прошло N дней после expire-timestamp.
+    // expire берётся из заголовка subscription-userinfo основного ответа.
+    if ($isSubstitute && $status === 'expired') {
+        $graceDays = (int) ($config['expired_grace_days'] ?? 0);
+        if ($graceDays > 0) {
+            $expireTs = parseSubscriptionExpire($result['headers']['subscription-userinfo'] ?? '');
+            if ($expireTs > 0 && time() - $expireTs > $graceDays * 86400) {
+                $isSubstitute = false;
+            }
         }
     }
 
@@ -306,6 +331,23 @@ function serveHappDebugView(string $shortUuid, array $config): void
     $url    = $base . '/api/sub/' . rawurlencode($shortUuid);
     $result = apiGet($url, $forwardHeaders);
 
+    // Grace-период для EXPIRED (debug-view)
+    $graceExpireTs = 0;
+    $graceActive   = null; // null = не применимо
+    if ($isSubstitute && $status === 'expired') {
+        $graceDays = (int) ($config['expired_grace_days'] ?? 0);
+        if ($graceDays > 0) {
+            $graceExpireTs = parseSubscriptionExpire($result['headers']['subscription-userinfo'] ?? '');
+            if ($graceExpireTs > 0) {
+                $secondsPassed = time() - $graceExpireTs;
+                $graceActive   = $secondsPassed <= $graceDays * 86400;
+                if (!$graceActive) {
+                    $isSubstitute = false;
+                }
+            }
+        }
+    }
+
     $ignoredResp = array_flip(ignoredResponseHeaders());
     $outHeaders  = [];
     foreach ($result['headers'] as $k => $v) {
@@ -379,6 +421,8 @@ function serveHappDebugView(string $shortUuid, array $config): void
         'body'            => $result['body'],
         'user_status'     => $status,
         'is_substitute'   => $isSubstitute,
+        'grace_active'    => $graceActive,
+        'grace_expire_ts' => $graceExpireTs,
         'info_api_status' => $infoResult['code'],
         'info_api_ms'     => $infoResult['ms'],
         'info_body'       => $infoResult['body'],
