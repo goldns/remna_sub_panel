@@ -34,6 +34,7 @@ PHP пользовательская панель для подписок [Remna
 - Шифрование ссылок через [crypto.happ.su](https://crypto.happ.su)
 - Debug-панель для диагностики (доступна только с заданного IP)
 - Поддержка Apache (`.htaccess`) и Nginx
+- Поддержка eGames панелей - переменная `egames_cookie`
 
 ## Требования
 
@@ -63,6 +64,10 @@ cd /var/www/sub && cp config.php.example config.php
 
 Открой `config.php` и заполни обязательные поля:
 
+```bash
+nano config.php
+```
+
 ```php
 'remnawave_url' => 'https://your-remnawave-panel.com',
 'api_token'     => 'ваш_api_токен',  // Remnawave → Settings → API Tokens
@@ -70,15 +75,20 @@ cd /var/www/sub && cp config.php.example config.php
 
 ### 4. Настрой веб-сервер
 
-**Nginx** — отредактируй `nginx.conf`, замени `server_name` и путь `root`, затем подключи:
+**Nginx** — отредактируй `nginx.conf`, замени `server_name` на свой домен.
 
+```bash
+nano nginx.conf
+```
+ 
+Затем подключи:
 ```bash
 cp nginx.conf /etc/nginx/sites-available/sub
 ln -s /etc/nginx/sites-available/sub /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 ```
 
-> Путь к сокету PHP-FPM по умолчанию: `unix:/run/php/php8.4-fpm.sock`  
+> Путь к сокету PHP-FPM по умолчанию: `unix:/run/php/php8.3-fpm.sock`  
 > Для другой версии PHP замени на `php8.x-fpm.sock`
 
 **Apache** — `.htaccess` уже лежит в корне, mod_rewrite должен быть включён:
@@ -87,6 +97,20 @@ nginx -t && systemctl reload nginx
 a2enmod rewrite
 systemctl reload apache2
 ```
+
+### 4. Настройка SSL сертификатов (опционально)
+> Перед настройкой нужно добавить DNS запись типа A на IP-адрес вашего сервера. 
+
+**Certbot** — установка certbot. 
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+```
+
+Выпуск сертификата под ваш домен:
+```bash
+certbot --nginx -d example.com && systemctl restart nginx
+```
+Если будет выбор - выбирайте 1.
 
 ## Конфигурация
 
