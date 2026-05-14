@@ -179,7 +179,7 @@ function handleDeleteHwid(string $shortUuid, array $config): void
         echo json_encode(['ok' => true]);
     } else {
         http_response_code($deleteResult['code'] ?: 502);
-        echo json_encode(['ok' => false, 'error' => 'Delete failed: ' . $deleteResult['code']]);
+        echo json_encode(['ok' => false, 'error' => 'Delete failed: ' . $deleteResult['code'] . ' ' . substr($deleteResult['body'], 0, 200)]);
     }
 }
 

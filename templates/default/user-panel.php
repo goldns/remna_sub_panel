@@ -286,14 +286,25 @@ function hwidDelete(btn) {
     btn.disabled = true;
     var fd = new FormData();
     fd.append('hwid', hwid);
-    if (card.getAttribute('data-wl') === '1') fd.append('wl', '1');
-    fetch(window.location.pathname + '?action=delete_hwid', { method: 'POST', body: fd })
+    var isWl = card.getAttribute('data-wl') === '1';
+    if (isWl) fd.append('wl', '1');
+    var url = window.location.pathname + (window.location.search ? window.location.search + '&action=delete_hwid' : '?action=delete_hwid');
+    fetch(url, { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })
         .then(function(d) {
             if (d.ok) {
                 card.style.transition = 'opacity .25s';
                 card.style.opacity = '0';
-                setTimeout(function() { card.remove(); }, 260);
+                setTimeout(function() {
+                    card.remove();
+                    // Обновляем счетчик HWID
+                    var counterSelector = isWl ? '.hwid-wl-summary-grid .hwid-item-count .value' : '.hwid-summary-grid:not(.hwid-wl-summary-grid) .hwid-item-count .value';
+                    var counter = document.querySelector(counterSelector);
+                    if (counter) {
+                        var count = parseInt(counter.textContent) || 0;
+                        counter.textContent = Math.max(0, count - 1);
+                    }
+                }, 260);
             } else {
                 btn.disabled = false;
                 alert('Ошибка: ' + (d.error || 'неизвестно'));
