@@ -44,16 +44,21 @@ PHP пользовательская панель для подписок [Remna
 
 ## Установка
 
-### 1. Скопируй файлы на сервер
+### 1. Установи PHP
+```bash
+sudo add-apt-repository universe -y && sudo apt update && sudo apt install -y php php-curl php-mbstring php-cli
+```
+
+### 2. Скопируй файлы на сервер
 
 ```bash
 git clone https://github.com/goldns/remna_sub_panel.git /var/www/sub
 ```
 
-### 2. Создай конфиг
+### 3. Создай конфиг
 
 ```bash
-cp config.php.example config.php
+cd /var/www/sub && cp config.php.example config.php
 ```
 
 Открой `config.php` и заполни обязательные поля:
@@ -63,7 +68,7 @@ cp config.php.example config.php
 'api_token'     => 'ваш_api_токен',  // Remnawave → Settings → API Tokens
 ```
 
-### 3. Настрой веб-сервер
+### 4. Настрой веб-сервер
 
 **Nginx** — отредактируй `nginx.conf`, замени `server_name` и путь `root`, затем подключи:
 
