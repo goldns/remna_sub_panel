@@ -57,6 +57,9 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
     if (!empty($config['api_token'])) {
         $forwardHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
     }
+    if (!empty($config['egames_cookie'])) {
+        $forwardHeaders[] = 'Cookie: ' . $config['egames_cookie'];
+    }
     $forwardHeaders[] = 'Cache-Control: no-cache, no-store, must-revalidate, private, max-age=0';
     $forwardHeaders[] = 'Pragma: no-cache';
     $forwardHeaders[] = 'Expires: 0';
@@ -69,6 +72,9 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
     $infoHeaders = ['Accept: application/json', 'X-Forwarded-For: ' . clientIp()];
     if (!empty($config['api_token'])) {
         $infoHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
+    }
+    if (!empty($config['egames_cookie'])) {
+        $infoHeaders[] = 'Cookie: ' . $config['egames_cookie'];
     }
     $infoResult = apiGet($base . '/api/sub/' . rawurlencode($shortUuid) . '/info', $infoHeaders);
     $status   = 'active';
@@ -336,6 +342,9 @@ function serveHappDebugView(string $shortUuid, array $config): void
     if (!empty($config['api_token'])) {
         $forwardHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
     }
+    if (!empty($config['egames_cookie'])) {
+        $forwardHeaders[] = 'Cookie: ' . $config['egames_cookie'];
+    }
 
     $base = rtrim($config['remnawave_url'], '/');
 
@@ -343,6 +352,9 @@ function serveHappDebugView(string $shortUuid, array $config): void
     $infoHeaders = ['Accept: application/json', 'X-Forwarded-For: ' . clientIp()];
     if (!empty($config['api_token'])) {
         $infoHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
+    }
+    if (!empty($config['egames_cookie'])) {
+        $infoHeaders[] = 'Cookie: ' . $config['egames_cookie'];
     }
     $infoResult = apiGet($base . '/api/sub/' . rawurlencode($shortUuid) . '/info', $infoHeaders);
     $status = 'active';

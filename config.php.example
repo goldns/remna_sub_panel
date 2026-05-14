@@ -103,6 +103,9 @@ return [
     // API-токен: Remnawave Dashboard → Settings → API Tokens
     'api_token' => '',
 
+    // EGames cookie для аутентификации (опционально)
+    'egames_cookie' => '',
+
     // -------------------------------------------------------------------------
     // WL-подписки (White List)
     // Пользователь с суффиксом к shortUuid содержит дополнительные серверы.
