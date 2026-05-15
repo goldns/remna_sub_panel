@@ -29,20 +29,16 @@ $_langCode = $config['lang'] ?? 'ru';
 $_langFile = __DIR__ . '/lang/lang_' . $_langCode . '.php';
 initLang(file_exists($_langFile) ? require $_langFile : require __DIR__ . '/lang/lang_ru.php');
 
-// ---------------------------------------------------------------------------
-// Извлекаем shortUuid из строки запроса (подставляется .htaccess rewrite)
-// ---------------------------------------------------------------------------
-$shortUuid = $_GET['id'] ?? '';
-
-if (!preg_match('/^[A-Za-z0-9_\-]{4,64}$/', $shortUuid)) {
-    renderErrorPage(404, 'Not Found');
-    exit;
-}
-
-// ---------------------------------------------------------------------------
-// AJAX: удаление HWID-устройства (POST ?action=delete_hwid)
-// ---------------------------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'delete_hwid') {
+    
+    $shortUuid = $_GET['id'] ?? '';
+    if (!preg_match('/^[A-Za-z0-9_\-]{4,64}$/', $shortUuid)) {
+        header('Content-Type: application/json');
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Invalid ID']);
+        exit;
+    }
+    
     if (!ALLOW_DELETE_HWID && !DEBUG_MODE) {
         header('Content-Type: application/json');
         http_response_code(403);
@@ -50,6 +46,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'delete
         exit;
     }
     handleDeleteHwid($shortUuid, $config);
+    exit;
+}
+
+$shortUuid = $_GET['id'] ?? '';
+
+if (!preg_match('/^[A-Za-z0-9_\-]{4,64}$/', $shortUuid)) {
+    renderErrorPage(404, 'Not Found');
     exit;
 }
 

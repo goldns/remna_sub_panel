@@ -118,7 +118,10 @@ function handleDeleteHwid(string $shortUuid, array $config): void
     }
 
     $base       = rtrim($config['remnawave_url'], '/');
-    $authHeader = 'Authorization: Bearer ' . $config['api_token'];
+    $authHeaders = ['Authorization: Bearer ' . $config['api_token']];
+    if (!empty($config['egames_cookie'])) {
+        $authHeaders[] = 'Cookie: ' . $config['egames_cookie'];
+    }
     $isWl       = !empty($_POST['wl']);
 
     $targetUuid = $isWl
@@ -127,7 +130,7 @@ function handleDeleteHwid(string $shortUuid, array $config): void
 
     $infoResult = apiGet(
         $base . '/api/sub/' . rawurlencode($targetUuid) . '/info',
-        ['Accept: application/json', 'X-Forwarded-For: ' . clientIp(), $authHeader]
+        array_merge(['Accept: application/json', 'X-Forwarded-For: ' . clientIp()], $authHeaders)
     );
 
     if ($infoResult['code'] !== 200) {
@@ -147,7 +150,7 @@ function handleDeleteHwid(string $shortUuid, array $config): void
 
     $userDetailResult = apiGet(
         $base . '/api/users/by-username/' . rawurlencode($username),
-        [$authHeader]
+        $authHeaders
     );
 
     if ($userDetailResult['code'] !== 200) {
@@ -168,7 +171,7 @@ function handleDeleteHwid(string $shortUuid, array $config): void
     $deleteResult = apiPost(
         $base . '/api/hwid/devices/delete',
         json_encode(['userUuid' => $userUuid, 'hwid' => $hwid]),
-        [$authHeader, 'Content-Type: application/json']
+        array_merge($authHeaders, ['Content-Type: application/json'])
     );
 
     if ($deleteResult['code'] === 200) {
@@ -176,7 +179,7 @@ function handleDeleteHwid(string $shortUuid, array $config): void
         echo json_encode(['ok' => true]);
     } else {
         http_response_code($deleteResult['code'] ?: 502);
-        echo json_encode(['ok' => false, 'error' => 'Delete failed: ' . $deleteResult['code']]);
+        echo json_encode(['ok' => false, 'error' => 'Delete failed: ' . $deleteResult['code'] . ' ' . substr($deleteResult['body'], 0, 200)]);
     }
 }
 
@@ -187,6 +190,9 @@ function serveBrowser(string $shortUuid, array $config): void
     $sendHeaders = ['Accept: application/json', 'X-Forwarded-For: ' . clientIp()];
     if (!empty($config['api_token'])) {
         $sendHeaders[] = 'Authorization: Bearer ' . $config['api_token'];
+    }
+    if (!empty($config['egames_cookie'])) {
+        $sendHeaders[] = 'Cookie: ' . $config['egames_cookie'];
     }
 
     $result = cachedApiGet('rsb_info_' . $shortUuid, $url, $sendHeaders, CACHE_TTL);
@@ -283,11 +289,14 @@ function serveBrowser(string $shortUuid, array $config): void
     $hwidInfo   = null;
     $wlHwidInfo = null;
     if (!empty($config['api_token'])) {
-        $authHeader      = 'Authorization: Bearer ' . $config['api_token'];
+        $authHeaders = ['Authorization: Bearer ' . $config['api_token']];
+        if (!empty($config['egames_cookie'])) {
+            $authHeaders[] = 'Cookie: ' . $config['egames_cookie'];
+        }
         $base            = rtrim($config['remnawave_url'], '/');
         $username        = $user['username'] ?? '';
         $userDetailUrl   = $base . '/api/users/by-username/' . rawurlencode($username);
-        $userDetailResult = cachedApiGet('rsb_udet_' . $username, $userDetailUrl, [$authHeader], CACHE_TTL * 5);
+        $userDetailResult = cachedApiGet('rsb_udet_' . $username, $userDetailUrl, $authHeaders, CACHE_TTL * 5);
 
         if ($userDetailResult['code'] === 200) {
             $userDetail = json_decode($userDetailResult['body'], true);
@@ -302,7 +311,7 @@ function serveBrowser(string $shortUuid, array $config): void
 
             if ($fullUuid) {
                 $hwidUrl       = $base . '/api/hwid/devices/' . rawurlencode($fullUuid);
-                $hwidResult    = cachedApiGet('rsb_hwid_' . $fullUuid, $hwidUrl, [$authHeader], CACHE_TTL);
+                $hwidResult    = cachedApiGet('rsb_hwid_' . $fullUuid, $hwidUrl, $authHeaders, CACHE_TTL);
                 $hwidApiStatus = $hwidResult['code'];
                 $hwidApiMs     = $hwidResult['ms'];
                 if ($hwidResult['code'] === 200) {
@@ -321,13 +330,13 @@ function serveBrowser(string $shortUuid, array $config): void
             // Загружаем HWID-устройства WL-пользователя
             if ($wlUser !== null && ($config['enable_wl'] ?? true)) {
                 $wlUsername        = $wlUser['username'] ?? '';
-                $wlUserDetailResult = cachedApiGet('rsb_udet_' . $wlUsername, $base . '/api/users/by-username/' . rawurlencode($wlUsername), [$authHeader], CACHE_TTL * 5);
+                $wlUserDetailResult = cachedApiGet('rsb_udet_' . $wlUsername, $base . '/api/users/by-username/' . rawurlencode($wlUsername), $authHeaders, CACHE_TTL * 5);
                 if ($wlUserDetailResult['code'] === 200) {
                     $wlUserDetail  = json_decode($wlUserDetailResult['body'], true);
                     $wlFullUuid    = $wlUserDetail['response']['uuid']            ?? null;
                     $wlHwidLimit   = $wlUserDetail['response']['hwidDeviceLimit'] ?? null;
                     if ($wlFullUuid) {
-                        $wlHwidResult = cachedApiGet('rsb_hwid_' . $wlFullUuid, $base . '/api/hwid/devices/' . rawurlencode($wlFullUuid), [$authHeader], CACHE_TTL);
+                        $wlHwidResult = cachedApiGet('rsb_hwid_' . $wlFullUuid, $base . '/api/hwid/devices/' . rawurlencode($wlFullUuid), $authHeaders, CACHE_TTL);
                         if ($wlHwidResult['code'] === 200) {
                             $wlHwidData  = json_decode($wlHwidResult['body'], true);
                             $wlHwidInfo  = [
