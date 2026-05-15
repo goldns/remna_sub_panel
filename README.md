@@ -124,7 +124,7 @@ certbot --nginx -d example.com && systemctl restart nginx
 | `project_name` | `null` | Название в шапке страницы (`null` = скрыть) |
 | `show_qr` | `false` | Показывать кнопку QR-кода |
 | `allow_delete_hwid` | `false` | `true` = кнопка удаления устройств доступна всем; `false` = только для `debug_ip` |
-| `copyright` | `null` | Текст копирайта в футере (`{year}` = текущий год) |
+| `copyright` | `null` | Текст копирайта в футере (`{year}` = текущий год, `{project_name}` = название проекта) |
 | `encrypt_sub_link` | `true` | Шифровать deeplink через crypto.happ.su |
 | `support_url` | `null` | Ссылка на поддержку (Telegram и др.) |
 | `lang` | `'ru'` | Язык интерфейса |

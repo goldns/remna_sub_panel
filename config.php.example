@@ -21,7 +21,7 @@ return [
     'allow_delete_hwid' => false,
 
     // Копирайт в футере панели (null = скрыть). {year} заменяется текущим годом.
-    'copyright' => '© {year} MyVPN. All rights reserved.',
+    'copyright' => '© {year} {project_name}. All rights reserved.',
 
     // Шифровать deeplink «Добавить подписку» через crypto.happ.su (crypt5)
     // true  — ссылка зашифрована, пользователь не видит реальный URL

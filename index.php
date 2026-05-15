@@ -16,9 +16,13 @@ require __DIR__ . '/browser.php';
 define('VERSION',          '1.6.7');
 define('SHOW_VERSION',     (bool) ($config['show_version'] ?? false));
 define('TEMPLATE_DIR',     __DIR__ . '/templates/' . ($config['template'] ?? 'default'));
-define('PROJECT_NAME',     $config['project_name']     ?? '');
+$_projectName = (string) ($config['project_name'] ?? '');
+$_copyright   = (string) ($config['copyright']    ?? '');
+$_copyright   = str_replace(['{project_name}', '{PROJECT_NAME}'], $_projectName, $_copyright);
+
+define('PROJECT_NAME',     $_projectName);
 define('SHOW_QR',          (bool) ($config['show_qr']          ?? false));
-define('COPYRIGHT',        $config['copyright']        ?? '');
+define('COPYRIGHT',        $_copyright);
 define('ENCRYPT_SUB_LINK', (bool) ($config['encrypt_sub_link'] ?? true));
 define('DEBUG_MODE',       !empty($config['debug_ip']) && clientIpMatchesDebugList($config['debug_ip']));
 define('ALLOW_DELETE_HWID', (bool) ($config['allow_delete_hwid'] ?? false));
