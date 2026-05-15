@@ -216,6 +216,8 @@ function cryptoShuffle(array &$arr): void
 // $replaceBody  — true: тело берётся целиком из $extra (EXPIRED); false: слияние (LIMITED/DISABLED/WL).
 function happOutputBody(array $main, ?array $extra, array $config, bool $shuffleMain = false, int $daysLeft = -1, bool $replaceBody = false): void
 {
+    header_remove('Content-Length');
+
     $contentType = $main['headers']['content-type'] ?? '';
 
     if (str_contains($contentType, 'text/plain')) {

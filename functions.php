@@ -222,7 +222,7 @@ function ignoredRequestHeaders(): array
 function ignoredResponseHeaders(): array
 {
     return [
-        'server', 'date', 'vary', 'content-encoding', 'transfer-encoding',
+        'server', 'date', 'vary', 'content-encoding', 'content-length', 'transfer-encoding',
         'connection', 'keep-alive',
         'strict-transport-security', 'x-content-type-options', 'x-dns-prefetch-control',
         'x-download-options', 'x-frame-options', 'x-permitted-cross-domain-policies',
