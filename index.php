@@ -60,7 +60,13 @@ if (!preg_match('/^[A-Za-z0-9_\-]{4,64}$/', $shortUuid)) {
 // Определяем тип клиента и направляем запрос
 // ---------------------------------------------------------------------------
 $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-$isHapp    = (bool) preg_match('/^Happ\/[\d.]+\//', $userAgent);
+$isHapp    = false;
+if (preg_match('/^Happ\/[\d.]+\//', $userAgent)) {
+    $isHapp = true;
+}
+if (str_starts_with($userAgent, 'INCY/')) {
+    $isHapp = true;
+}
 $hwid      = $_SERVER['HTTP_X_HWID'] ?? '';
 
 if (DEBUG_MODE && isset($_GET['happ'])) {
