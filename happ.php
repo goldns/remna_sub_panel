@@ -38,6 +38,27 @@ function parseSubscriptionExpire(string $header): int
     return 0;
 }
 
+function decodeProfileTitleHeader(string $value): string
+{
+    $value = trim($value);
+    if (str_starts_with($value, 'base64:')) {
+        $decoded = base64_decode(substr($value, 7), true);
+        return $decoded !== false ? $decoded : $value;
+    }
+    return $value;
+}
+
+function prefixedProfileTitleHeader(string $sourceValue, string $prefix): string
+{
+    return 'base64:' . base64_encode($prefix . decodeProfileTitleHeader($sourceValue));
+}
+
+function resolveProfileTitlePrefix(string $prefix, array $config): string
+{
+    $projectName = (string) ($config['project_name'] ?? '');
+    return str_replace(['{project_name}', '{PROJECT_NAME}'], $projectName, $prefix);
+}
+
 function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): void
 {
     $ignored = array_flip(ignoredRequestHeaders());
@@ -109,7 +130,7 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
         }
     }
     header('profile-web-page-url: ' . currentUrl());
-    applyConfigHeaderOverrides($config);
+    applyConfigHeaderOverrides($config, $result['headers']);
     applyHappFlags($config);
 
     // Статус-специфичный announce перекрывает глобальный из конфига
@@ -256,16 +277,15 @@ function happOutputBody(array $main, ?array $extra, array $config, bool $shuffle
     }
 }
 
-// Применяет переопределения заголовков из конфига (null = не менять, '' = удалить)
-function applyConfigHeaderOverrides(array $config): void
+// Применяет переопределения заголовков из конфига.
+function applyConfigHeaderOverrides(array $config, array $sourceHeaders = []): void
 {
-    $profileTitle = $config['profile_title'] ?? null;
-    if ($profileTitle !== null) {
-        if ($profileTitle === '') {
-            header_remove('profile-title');
-        } else {
-            header('profile-title: base64:' . base64_encode($profileTitle));
-        }
+    $profileTitlePrefix = $config['profile_title_prefix'] ?? null;
+    if ($profileTitlePrefix !== null) {
+        header('profile-title: ' . prefixedProfileTitleHeader(
+            $sourceHeaders['profile-title'] ?? '',
+            resolveProfileTitlePrefix((string) $profileTitlePrefix, $config)
+        ));
     }
 
     $supportUrl = $config['support_url'] ?? null;
@@ -402,12 +422,17 @@ function serveHappDebugView(string $shortUuid, array $config): void
         unset($outHeaders['routing']);
     }
     $overrides = [
-        'profile_title'            => fn($v) => ['profile-title',          'base64:' . base64_encode($v)],
         'support_url'              => fn($v) => ['support-url',             $v],
         'content_disposition_name' => fn($v) => ['content-disposition',     'attachment; filename=' . $v],
         'announce'                 => fn($v) => ['announce',                'base64:' . base64_encode($v)],
         'profile_update_interval'  => fn($v) => ['profile-update-interval', $v],
     ];
+    if (($config['profile_title_prefix'] ?? null) !== null) {
+        $outHeaders['profile-title'] = prefixedProfileTitleHeader(
+            $result['headers']['profile-title'] ?? '',
+            resolveProfileTitlePrefix((string) $config['profile_title_prefix'], $config)
+        );
+    }
     foreach ($overrides as $key => $fn) {
         if (($config[$key] ?? null) !== null) {
             if ($config[$key] === '') {

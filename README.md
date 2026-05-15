@@ -261,7 +261,13 @@ KamCDN · username
 
 ### Переопределение заголовков Happ
 
-Параметры `profile_title`, `support_url`, `announce`, `profile_update_interval`, `content_disposition_name`:
+Параметр `profile_title_prefix`:
+- `null` — пропустить `Profile-Title` из Remnawave без изменений
+- `'строка'` — декодировать `Profile-Title`, добавить строку перед названием и закодировать обратно в `base64:...`
+- Разделитель добавляется прямо в значение, например `'MyVPN '` или `'MyVPN | '`
+- Можно использовать `{project_name}`, например `'{project_name} | '`
+
+Параметры `support_url`, `announce`, `profile_update_interval`, `content_disposition_name`:
 - `null` — пропустить значение Remnawave без изменений
 - `'строка'` — заменить своим значением
 - `''` — удалить заголовок полностью
