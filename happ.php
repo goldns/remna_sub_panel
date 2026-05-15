@@ -106,11 +106,7 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
         $daysLeft = (int) ($infoData['response']['user']['daysLeft'] ?? -1);
     }
 
-    // 2. UUID подмены (пустая строка = не задан = работать как обычно)
-    $substituteUuid = resolveSubstituteUuid($status, $config);
-    $isSubstitute   = $substituteUuid !== '';
-
-    // 3. Основной запрос (заголовки + тело оригинального пользователя)
+    // 2. Основной запрос (заголовки + тело оригинального пользователя)
     $url    = $base . '/api/sub/' . rawurlencode($shortUuid);
     $result = apiGet($url, $forwardHeaders);
 
@@ -118,6 +114,15 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
         renderErrorPage(404, 'Not Found');
         exit;
     }
+
+    $limitedByHwid = strcasecmp((string) ($result['headers']['x-hwid-max-devices-reached'] ?? ''), 'true') === 0;
+    if ($limitedByHwid) {
+        $status = 'limited';
+    }
+
+    // 3. UUID подмены (пустая строка = не задан = работать как обычно)
+    $substituteUuid = resolveSubstituteUuid($status, $config);
+    $isSubstitute   = $substituteUuid !== '';
 
     // 4. Форвардим заголовки оригинального пользователя
     // Заголовки из wl_headers_forward глушатся здесь и выставляются позже из WL (или fallback на main)
@@ -147,7 +152,7 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
     // слияние с user_expired делается только пока не прошло N дней после expire-timestamp.
     // expire берётся из заголовка subscription-userinfo основного ответа.
     // {EXP_DAY} заменяется на кол-во дней, оставшихся до конца grace-периода.
-    if ($isSubstitute && $status === 'expired') {
+    if (!$limitedByHwid && $isSubstitute && $status === 'expired') {
         $graceDays = (int) ($config['expired_grace_days'] ?? 0);
         if ($graceDays > 0) {
             $expireTs = parseSubscriptionExpire($result['headers']['subscription-userinfo'] ?? '');
@@ -385,17 +390,22 @@ function serveHappDebugView(string $shortUuid, array $config): void
         $status   = strtolower($infoData['response']['user']['userStatus'] ?? 'active');
     }
 
-    $substituteUuid = resolveSubstituteUuid($status, $config);
-    $isSubstitute   = $substituteUuid !== '';
-
     // Основной запрос
     $url    = $base . '/api/sub/' . rawurlencode($shortUuid);
     $result = apiGet($url, $forwardHeaders);
 
+    $limitedByHwid = strcasecmp((string) ($result['headers']['x-hwid-max-devices-reached'] ?? ''), 'true') === 0;
+    if ($limitedByHwid) {
+        $status = 'limited';
+    }
+
+    $substituteUuid = resolveSubstituteUuid($status, $config);
+    $isSubstitute   = $substituteUuid !== '';
+
     // Grace-период для EXPIRED (debug-view)
     $graceExpireTs = 0;
     $graceActive   = null; // null = не применимо
-    if ($isSubstitute && $status === 'expired') {
+    if (!$limitedByHwid && $isSubstitute && $status === 'expired') {
         $graceDays = (int) ($config['expired_grace_days'] ?? 0);
         if ($graceDays > 0) {
             $graceExpireTs = parseSubscriptionExpire($result['headers']['subscription-userinfo'] ?? '');
