@@ -201,7 +201,7 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
             }
         }
         $wlOnTop = ($config['wl_position'] ?? 'bottom') === 'top';
-        happOutputBody($result, $extra, $config, $shuffleMain, $daysLeft, false, $wlOnTop);
+        happOutputBody($result, $extra, $config, $shuffleMain, $daysLeft, false, $wlOnTop, $status === 'active');
     }
 }
 
@@ -221,7 +221,8 @@ function cryptoShuffle(array &$arr): void
 // $daysLeft     — заменить {EXP_DAY} в именах серверов (>= 0 = заменить).
 // $replaceBody  — true: тело берётся целиком из $extra (EXPIRED); false: слияние (LIMITED/DISABLED/WL).
 // $extraOnTop   — true: $extra размещается ПЕРЕД $main; false: после (по умолчанию).
-function happOutputBody(array $main, ?array $extra, array $config, bool $shuffleMain = false, int $daysLeft = -1, bool $replaceBody = false, bool $extraOnTop = false): void
+// $allowExtraServers — добавлять серверы из add_servers_base64 (только для активной подписки).
+function happOutputBody(array $main, ?array $extra, array $config, bool $shuffleMain = false, int $daysLeft = -1, bool $replaceBody = false, bool $extraOnTop = false, bool $allowExtraServers = false): void
 {
     header_remove('Content-Length');
 
@@ -246,11 +247,12 @@ function happOutputBody(array $main, ?array $extra, array $config, bool $shuffle
                 }
             }
         }
-        // Дополнительные серверы из конфига — добавляются в конец списка (только base64)
-        $extraServers = array_values(array_filter(
+        // Дополнительные серверы из конфига — добавляются в конец списка
+        // (только base64 и только для активной подписки)
+        $extraServers = $allowExtraServers ? array_values(array_filter(
             array_map('trim', (array) ($config['add_servers_base64'] ?? [])),
             fn($s) => $s !== ''
-        ));
+        )) : [];
         if ($extraServers && $body !== false) {
             $body = rtrim($body) . "\n" . implode("\n", $extraServers);
         }
