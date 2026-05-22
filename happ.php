@@ -200,7 +200,8 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
                 header($hname . ': ' . $val);
             }
         }
-        happOutputBody($result, $extra, $config, $shuffleMain, $daysLeft);
+        $wlOnTop = ($config['wl_position'] ?? 'bottom') === 'top';
+        happOutputBody($result, $extra, $config, $shuffleMain, $daysLeft, false, $wlOnTop);
     }
 }
 
@@ -219,7 +220,8 @@ function cryptoShuffle(array &$arr): void
 // $shuffleMain  — перемешать серверы основной подписки (только ACTIVE, не WL).
 // $daysLeft     — заменить {EXP_DAY} в именах серверов (>= 0 = заменить).
 // $replaceBody  — true: тело берётся целиком из $extra (EXPIRED); false: слияние (LIMITED/DISABLED/WL).
-function happOutputBody(array $main, ?array $extra, array $config, bool $shuffleMain = false, int $daysLeft = -1, bool $replaceBody = false): void
+// $extraOnTop   — true: $extra размещается ПЕРЕД $main; false: после (по умолчанию).
+function happOutputBody(array $main, ?array $extra, array $config, bool $shuffleMain = false, int $daysLeft = -1, bool $replaceBody = false, bool $extraOnTop = false): void
 {
     header_remove('Content-Length');
 
@@ -238,7 +240,9 @@ function happOutputBody(array $main, ?array $extra, array $config, bool $shuffle
             if (!$replaceBody && $extra !== null) {
                 $extraBody = base64_decode(trim($extra['body']), true);
                 if ($body !== false && $extraBody !== false) {
-                    $body = rtrim($body) . "\n" . ltrim($extraBody);
+                    $body = $extraOnTop
+                        ? rtrim($extraBody) . "\n" . ltrim($body)
+                        : rtrim($body) . "\n" . ltrim($extraBody);
                 }
             }
         }
@@ -261,7 +265,9 @@ function happOutputBody(array $main, ?array $extra, array $config, bool $shuffle
             if (!$replaceBody && $extra !== null) {
                 $extraDecoded = json_decode($extra['body']);
                 if (is_array($decoded) && is_array($extraDecoded)) {
-                    $decoded = array_merge($decoded, $extraDecoded);
+                    $decoded = $extraOnTop
+                        ? array_merge($extraDecoded, $decoded)
+                        : array_merge($decoded, $extraDecoded);
                 }
             }
         }
