@@ -246,6 +246,14 @@ function happOutputBody(array $main, ?array $extra, array $config, bool $shuffle
                 }
             }
         }
+        // Дополнительные серверы из конфига — добавляются в конец списка (только base64)
+        $extraServers = array_values(array_filter(
+            array_map('trim', (array) ($config['add_servers_base64'] ?? [])),
+            fn($s) => $s !== ''
+        ));
+        if ($extraServers && $body !== false) {
+            $body = rtrim($body) . "\n" . implode("\n", $extraServers);
+        }
         if ($daysLeft >= 0 && $body !== false) {
             $body = str_replace(['{EXP_DAY}', '%7BEXP_DAY%7D'], (string) $daysLeft, $body);
         }
