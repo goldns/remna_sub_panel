@@ -71,6 +71,9 @@ if (preg_match('/^Happ\/[\d.]+\//', $userAgent)) {
 if (str_starts_with($userAgent, 'INCY/')) {
     $isHapp = true;
 }
+if (str_starts_with($userAgent, 'v2raytun/')) {
+    $isHapp = true;
+}
 $hwid      = $_SERVER['HTTP_X_HWID'] ?? '';
 
 if (DEBUG_MODE && isset($_GET['happ'])) {
