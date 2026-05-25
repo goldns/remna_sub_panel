@@ -19,8 +19,9 @@ PHP пользовательская панель для подписок [Remna
 ## Возможности
 
 - Браузерная панель: трафик, срок, статус, HWID-устройства, белые списки
+- QR-код текущей страницы подписки в браузерной панели (`show_qr`)
 - Блок **«Состояние серверов»** в браузерной панели: онлайн/офлайн, задержка, флаги стран, описание — через xray-checker API
-- Проксирование подписки для Happ с фильтрацией и переопределением заголовков
+- Проксирование подписки для Happ, INCY и V2RayTun с фильтрацией и переопределением заголовков
 - Поддержка форматов подписки: **base64 (text/plain)** и **JSON**
 - Слияние основной подписки и WL-подписки (`{uuid}{wl_suffix}`) в один ответ (только для активных пользователей), с выбором позиции WL-серверов
 - Добавление произвольных серверов в конец списка через конфиг (`add_servers_base64`, только base64)
@@ -70,7 +71,7 @@ nano config.php
 ```
 
 ```php
-'remnawave_url' => 'https://your-remnawave-panel.com',
+'remnawave_url' => 'https://panel.example.lte',
 'api_token'     => 'ваш_api_токен',  // Remnawave → Settings → API Tokens
 ```
 
@@ -109,7 +110,7 @@ sudo apt install -y certbot python3-certbot-nginx
 
 Выпуск сертификата под ваш домен:
 ```bash
-certbot --nginx -d example.com && systemctl restart nginx
+certbot --nginx -d sub.example.lte && systemctl restart nginx
 ```
 Если будет выбор - выбирайте 1.
 
@@ -123,7 +124,7 @@ certbot --nginx -d example.com && systemctl restart nginx
 | `api_token` | — | API-токен из Remnawave Dashboard |
 | `show_version` | `true` | Показывать версию прокси в футере панели |
 | `project_name` | `null` | Название в шапке страницы (`null` = скрыть) |
-| `show_qr` | `false` | Показывать кнопку QR-кода |
+| `show_qr` | `false` | Показывать кнопку QR-кода текущей страницы подписки |
 | `allow_delete_hwid` | `false` | `true` = кнопка удаления устройств доступна всем; `false` = только для `debug_ip` |
 | `copyright` | `null` | Текст копирайта в футере (`{year}` = текущий год, `{project_name}` = название проекта) |
 | `encrypt_sub_link` | `true` | Шифровать deeplink через crypto.happ.su |
@@ -258,12 +259,36 @@ subscription-userinfo: upload=0; download=...; total=...; expire=1778852100
 
 Логика: `null` = не переопределять | `''` = удалить заголовок | `'строка'` = заменить.
 
+### QR-код
+
+Если `show_qr` включен (`true`), в шапке браузерной панели появляется кнопка QR. Она открывает небольшое модальное окно с затемнением страницы.
+
+QR-код генерируется в браузере и кодирует полный текущий URL, по которому пользователь открыл панель. Например, для:
+
+```text
+https://sub.example.lte/uu-p-0v4jJSMQEX-
+```
+
+в QR будет записан именно этот адрес. Генерация локальная, без внешних API.
+
+### Поддерживаемые клиенты
+
+Клиенты определяются по `User-Agent` и получают ответ подписки через Happ-совместимый обработчик:
+
+| Клиент | User-Agent |
+|---|---|
+| Happ | `Happ/{version}/{platform}` |
+| INCY | `INCY/*` |
+| V2RayTun | `v2raytun/*` |
+
+Для этих клиентов требуется заголовок `X-HWID`; без него запрос вернёт `403`.
+
 ### Кнопки оплаты
 
 В шапке браузерной панели можно показать до двух кнопок оплаты. Кнопки располагаются под названием проекта и именем пользователя, в одном ряду с кнопками QR и Telegram:
 
 ```
-KamCDN · username
+MyVPN · username
 [ Продлить ]  [ Продлить в Телеграмм ]  [ QR ]  [ TG ]
 ```
 
@@ -284,8 +309,8 @@ KamCDN · username
 
 Примеры:
 ```php
-'payment_url'    => 'https://payment.example.com/pay/{shortUuid}',
-'payment_url_tg' => 'https://t.me/mybot?start={B64:USERNAME}',
+'payment_url'    => 'https://pay.example.lte/pay/{shortUuid}',
+'payment_url_tg' => 'https://bot.example.lte/start/{B64:USERNAME}',
 ```
 
 ### Переопределение заголовков Happ
@@ -374,12 +399,13 @@ KamCDN · username
 ## Структура URL
 
 ```
-https://your-domain.com/{shortUuid}
+https://sub.example.lte/{shortUuid}
 ```
 
 - Браузер → панель пользователя
 - Happ + X-HWID → подписка (JSON или base64 — зависит от настроек Remnawave)
-- Happ без X-HWID → 403
+- V2RayTun (`User-Agent: v2raytun/*`) + X-HWID → тот же ответ, что для Happ
+- Happ/V2RayTun без X-HWID → 403
 - Браузер + `?happ` (с debug_ip) → симуляция Happ-запроса
 - Совпадение с `checkers` → Happ-ответ (без HWID-проверки)
 
