@@ -33,7 +33,7 @@
             </a>
             <?php endif ?>
             <?php if (SHOW_QR): ?>
-            <button class="site-link-btn" id="qr-btn" title="QR-код" type="button">
+            <button class="site-link-btn" id="qr-btn" title="QR-код" type="button" aria-haspopup="dialog" aria-controls="qr-modal">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
                     <path d="M3 3h7v7H3V3zm2 2v3h3V5H5zm1 1h1v1H6V6zM3 14h7v7H3v-7zm2 2v3h3v-3H5zm1 1h1v1H6v-1zM14 3h7v7h-7V3zm2 2v3h3V5h-3zm1 1h1v1h-1V6zM14 14h2v2h-2v-2zm2 2h2v2h-2v-2zm2-2h2v2h-2v-2zm0 4h2v2h-2v-2zm-4 0h2v2h-2v-2zm2-2h2v2h-2v-2z"/>
                 </svg>
@@ -263,6 +263,21 @@
     </div>
     <?php endif ?>
 </div>
+<?php if (SHOW_QR): ?>
+<div class="qr-modal" id="qr-modal" role="dialog" aria-modal="true" aria-label="QR" hidden>
+    <div class="qr-dialog">
+        <button class="qr-close-btn" type="button" aria-label="Close" data-qr-close>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+        </button>
+        <div class="qr-canvas-wrap">
+            <canvas id="qr-canvas" width="256" height="256" aria-label="QR"></canvas>
+        </div>
+    </div>
+</div>
+<script src="<?= assetUrl('js/qr-modal.js') ?>" defer></script>
+<?php endif ?>
 <?php if ($debug !== null) include __DIR__ . '/debug-panel.php'; ?>
 <script>
 function serversToggle() {
