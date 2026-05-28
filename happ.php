@@ -184,12 +184,24 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
         happOutputBody($result, $subResult['code'] === 200 ? $subResult : null, $config, false, $daysLeft, $replaceBody);
     } else {
         // 5b. Активный пользователь: оригинал + WL (если включено и статус active)
-        $extra = null;
+        // WL-тело подмешивается всегда когда /sub/{wl_uuid} вернул 200.
+        // Дополнительно через /sub/{wl_uuid}/info узнаём статус WL — он влияет ТОЛЬКО на
+        // add_servers_base64 в режиме 'wl' (доп. серверы привязываются к ACTIVE-WL).
+        $extra            = null;
+        $wlStatusIsActive = false;
         if (($config['enable_wl'] ?? true) && $status === 'active') {
             $wlSuffix = $config['wl_suffix'] ?? '_WL';
-            $wlResult = apiGet($base . '/api/sub/' . rawurlencode($shortUuid . $wlSuffix), $forwardHeaders);
+            $wlUuid   = $shortUuid . $wlSuffix;
+
+            $wlResult = apiGet($base . '/api/sub/' . rawurlencode($wlUuid), $forwardHeaders);
             if ($wlResult['code'] === 200) {
                 $extra = $wlResult;
+
+                $wlInfoResult = apiGet($base . '/api/sub/' . rawurlencode($wlUuid) . '/info', $infoHeaders);
+                if ($wlInfoResult['code'] === 200) {
+                    $wlInfoData       = json_decode($wlInfoResult['body'], true);
+                    $wlStatusIsActive = strtolower($wlInfoData['response']['user']['userStatus'] ?? '') === 'active';
+                }
             }
         }
         // wl_headers_forward: предпочитаем значение из WL, fallback на main
@@ -201,7 +213,13 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
             }
         }
         $wlOnTop = ($config['wl_position'] ?? 'bottom') === 'top';
-        happOutputBody($result, $extra, $config, $shuffleMain, $daysLeft, false, $wlOnTop, $status === 'active');
+        // add_servers_attach: 'main' (по умолчанию) — добавляем при ACTIVE всегда;
+        //                     'wl' — только если WL-пользователь сам имеет userStatus=ACTIVE
+        //                     (если WL=LIMITED/EXPIRED/DISABLED — WL-тело всё равно подмешивается,
+        //                      но доп. серверы НЕ добавляются)
+        $attachMode = ($config['add_servers_attach'] ?? 'main') === 'wl' ? 'wl' : 'main';
+        $allowExtra = $status === 'active' && ($attachMode === 'main' || $wlStatusIsActive);
+        happOutputBody($result, $extra, $config, $shuffleMain, $daysLeft, false, $wlOnTop, $allowExtra);
     }
 }
 
@@ -549,8 +567,20 @@ function serveHappDebugView(string $shortUuid, array $config): void
         $debugData['wl_raw_response'] = '';
     } else if (($config['enable_wl'] ?? true) && $status === 'active') {
         $wlSuffix = $config['wl_suffix'] ?? '_WL';
-        $wlUrl    = $base . '/api/sub/' . rawurlencode($shortUuid . $wlSuffix);
+        $wlUuid   = $shortUuid . $wlSuffix;
+        $wlUrl    = $base . '/api/sub/' . rawurlencode($wlUuid);
         $wlResult = apiGet($wlUrl, $forwardHeaders);
+
+        // Доп. запрос /info — узнаём статус WL (влияет только на add_servers_base64 в режиме 'wl')
+        $wlStatusValue = 'unknown';
+        if ($wlResult['code'] === 200) {
+            $wlInfoUrl    = $base . '/api/sub/' . rawurlencode($wlUuid) . '/info';
+            $wlInfoResult = apiGet($wlInfoUrl, $infoHeaders);
+            if ($wlInfoResult['code'] === 200) {
+                $wlInfoData    = json_decode($wlInfoResult['body'], true);
+                $wlStatusValue = strtolower($wlInfoData['response']['user']['userStatus'] ?? 'unknown');
+            }
+        }
 
         $wlRawReq = 'GET ' . parse_url($wlUrl, PHP_URL_PATH) . ' HTTP/1.1' . "\n"
             . 'Host: ' . (parse_url($wlUrl, PHP_URL_HOST) ?? '') . "\n";
@@ -566,7 +596,7 @@ function serveHappDebugView(string $shortUuid, array $config): void
 
         $debugData['wl_api_status']   = $wlResult['code'];
         $debugData['wl_api_ms']       = $wlResult['ms'];
-        $debugData['wl_api_url']      = $wlUrl;
+        $debugData['wl_api_url']      = $wlUrl . ' (WL userStatus: ' . strtoupper($wlStatusValue) . ')';
         $debugData['wl_raw_request']  = $wlRawReq;
         $debugData['wl_raw_response'] = $wlRawResp;
     } else {
