@@ -13,7 +13,7 @@ require __DIR__ . '/template.php';
 require __DIR__ . '/happ.php';
 require __DIR__ . '/browser.php';
 
-define('VERSION',          '1.8.2');
+define('VERSION',          '1.9.2');
 define('SHOW_VERSION',     (bool) ($config['show_version'] ?? false));
 define('TEMPLATE_DIR',     __DIR__ . '/templates/' . ($config['template'] ?? 'default'));
 $_projectName = (string) ($config['project_name'] ?? '');
@@ -26,6 +26,7 @@ define('COPYRIGHT',        $_copyright);
 define('ENCRYPT_SUB_LINK', (bool) ($config['encrypt_sub_link'] ?? true));
 define('DEBUG_MODE',       !empty($config['debug_ip']) && clientIpMatchesDebugList($config['debug_ip']));
 define('ALLOW_DELETE_HWID', (bool) ($config['allow_delete_hwid'] ?? false));
+define('INSTALL_CLIENTS',   (array) ($config['install_clients']  ?? ['incy', 'happ']));
 define('APCU_CACHE',        (bool) ($config['apcu_cache']        ?? true));
 define('CACHE_TTL',         max(1, (int) ($config['cache_ttl']   ?? 60)));
 

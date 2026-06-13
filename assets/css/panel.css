@@ -455,6 +455,38 @@ body::after {
 
 .guide-body-inner { overflow: hidden }
 
+.guide-client-tabs {
+    display: flex;
+    gap: 6px;
+    margin: 14px 0 4px;
+    background: #fdf6f0;
+    border: 1px solid #f0dfd0;
+    border-radius: 14px;
+    padding: 5px;
+}
+
+.guide-client-tab {
+    flex: 1;
+    border: none;
+    background: none;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: .82rem;
+    font-weight: 700;
+    color: #7a5838;
+    cursor: pointer;
+    transition: background .15s, color .15s, box-shadow .15s;
+}
+
+.guide-client-tab.active {
+    background: linear-gradient(135deg, #f97316, #f59e0b);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(249,115,22,.3);
+}
+
+.guide-client { display: none }
+.guide-client.active { display: block }
+
 .guide-platform-row {
     display: flex;
     justify-content: flex-end;

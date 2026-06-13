@@ -166,6 +166,31 @@ function hwidPlatformIcon(string $platform): string
     };
 }
 
+// Формирует строку устройства одной строкой: «<b>Платформа</b> / <b>ПРИЛОЖЕНИЕ</b> / версия / версия_ОС».
+// Платформа берётся из поля platform, приложение и версия парсятся из userAgent
+// (Happ/2.7.0/Windows/... → app=Happ, ver=2.7.0; v2raytun/windows → app=v2raytun, без версии).
+// $osVersion добавляется в конец обычным шрифтом. Жирным — только платформа и имя приложения.
+// Возвращает безопасный HTML (части экранированы, теги <b> добавляются здесь). Пусто = нечего показать.
+function formatDeviceAgent(string $userAgent, string $platform, string $osVersion = ''): string
+{
+    $ua    = trim($userAgent);
+    $parts = $ua !== ''
+        ? array_values(array_filter(array_map('trim', explode('/', $ua)), fn($p) => $p !== ''))
+        : [];
+
+    $app = $parts[0] ?? '';
+    // Версия — вторая часть, только если похожа на версию (начинается с цифры).
+    $ver = (isset($parts[1]) && preg_match('/^[0-9][0-9.]*$/', $parts[1])) ? $parts[1] : '';
+
+    $segs = [];
+    if ($platform !== '')         $segs[] = '<b>' . htmlspecialchars($platform) . '</b>';
+    if ($app !== '')              $segs[] = '<b>' . htmlspecialchars(strtoupper($app)) . '</b>';
+    if ($ver !== '')              $segs[] = htmlspecialchars($ver);
+    if (trim($osVersion) !== '')  $segs[] = htmlspecialchars(trim($osVersion));
+
+    return implode(' / ', $segs);
+}
+
 function formatBytes(int $bytes): string
 {
     if ($bytes <= 0) return '0 B';

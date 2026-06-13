@@ -131,15 +131,14 @@
                         $lastSeen    = $updatedAt ? date('d.m.Y H:i', strtotime($updatedAt)) : '—';
                         $ago         = $updatedAt ? timeAgo($updatedAt) : '—';
                         $name        = $model !== '' ? $model : t('hwid', 'no_model');
-                        $metaParts   = array_filter([$platformRaw, $osVer]);
-                        $metaTop     = implode(' / ', $metaParts);
+                        $agentLine   = formatDeviceAgent($device['userAgent'] ?? '', $platformRaw, $osVer);
                         $metaBottom  = t('hwid', 'last_seen') . ': ' . $ago . ' (' . $lastSeen . ')';
                     ?>
                     <div class="hwid-device" data-hwid="<?= htmlspecialchars($device['hwid'] ?? '') ?>">
                         <div class="hwid-device-icon"><?= hwidPlatformIcon($platform) ?></div>
                         <div class="hwid-device-info">
                             <div class="hwid-device-name"><?= htmlspecialchars($name) ?></div>
-                            <?php if ($metaTop !== ''): ?><div class="hwid-device-meta"><?= htmlspecialchars($metaTop) ?></div><?php endif ?>
+                            <?php if ($agentLine !== ''): ?><div class="hwid-device-meta hwid-device-agent"><?= $agentLine ?></div><?php endif ?>
                             <div class="hwid-device-meta hwid-device-seen"><?= htmlspecialchars($metaBottom) ?></div>
                         </div>
                         <?php if (ALLOW_DELETE_HWID || DEBUG_MODE): ?>
@@ -180,15 +179,14 @@
                         $lastSeen    = $updatedAt ? date('d.m.Y H:i', strtotime($updatedAt)) : '—';
                         $ago         = $updatedAt ? timeAgo($updatedAt) : '—';
                         $name        = $model !== '' ? $model : t('hwid', 'no_model');
-                        $metaParts   = array_filter([$platformRaw, $osVer]);
-                        $metaTop     = implode(' / ', $metaParts);
+                        $agentLine   = formatDeviceAgent($device['userAgent'] ?? '', $platformRaw, $osVer);
                         $metaBottom  = t('hwid', 'last_seen') . ': ' . $ago . ' (' . $lastSeen . ')';
                     ?>
                     <div class="hwid-device" data-hwid="<?= htmlspecialchars($device['hwid'] ?? '') ?>" data-wl="1">
                         <div class="hwid-device-icon"><?= hwidPlatformIcon($platform) ?></div>
                         <div class="hwid-device-info">
                             <div class="hwid-device-name"><?= htmlspecialchars($name) ?></div>
-                            <?php if ($metaTop !== ''): ?><div class="hwid-device-meta"><?= htmlspecialchars($metaTop) ?></div><?php endif ?>
+                            <?php if ($agentLine !== ''): ?><div class="hwid-device-meta hwid-device-agent"><?= $agentLine ?></div><?php endif ?>
                             <div class="hwid-device-meta hwid-device-seen"><?= htmlspecialchars($metaBottom) ?></div>
                         </div>
                         <?php if (ALLOW_DELETE_HWID || DEBUG_MODE): ?>

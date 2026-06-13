@@ -82,212 +82,385 @@ return [
     ],
 
     // Installation guide
+    // Структура: clients → {client} → platforms → {platform} → steps.
+    // Какие клиенты и в каком порядке показывать — задаётся ключом install_clients в config.php.
+    // Кнопка с type='sub' получает ссылку подписки автоматически по клиенту (happ:// / incy://).
     'install' => [
         'title' => '🚀 Инструкция по установке',
 
-        'platforms' => [
-            'windows' => [
-                'label' => '🖥️ Windows',
-                'steps' => [
-                    [
-                        'icon'  => 'download',
-                        'title' => '📥 Установка приложения',
-                        'desc'  => 'Выберите подходящую версию для вашего устройства 💻, нажмите на кнопку ниже и установите приложение.',
-                        'btns'  => [
-                            ['text' => 'Windows', 'href' => 'https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.x64.exe', 'type' => 'ext'],
+        'clients' => [
+
+            'incy' => [
+                'label' => 'INCY',
+                'platforms' => [
+                    'windows' => [
+                        'label' => '🖥️ Windows',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Скачайте и запустите установщик 💻 для настройки INCY на вашем ПК.',
+                                'btns'  => [
+                                    ['text' => 'Установщик Windows', 'href' => 'https://github.com/INCY-DEV/incy-platforms/releases/latest/download/incy-windows-setup.exe', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇 — приложение INCY откроется, и подписка добавится автоматически ✨',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'Откройте приложение INCY 📱, выберите сервер 🌍 и нажмите кнопку подключения 🔘',
+                                'btns'  => [],
+                            ],
                         ],
                     ],
-                    [
-                        'icon'  => 'cloud',
-                        'title' => '🔗 Добавление подписки',
-                        'desc'  => 'Нажмите кнопку ниже 👇 — приложение откроется, и подписка добавится автоматически ✨',
-                        'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+
+                    'android' => [
+                        'label' => '🤖 Android',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Установите INCY из Google Play 🛒 или скачайте APK-файл 📦 напрямую.',
+                                'btns'  => [
+                                    ['text' => '▶️ Google Play', 'href' => 'https://play.google.com/store/apps/details?id=llc.itdev.incy', 'type' => 'ext'],
+                                    ['text' => '📥 Скачать APK',  'href' => 'https://github.com/INCY-DEV/incy-platforms/releases/latest/download/Incy.apk', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇 — приложение INCY откроется, и подписка добавится автоматически ✨',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'Откройте приложение 📱, выберите сервер 🌍 из списка и включите VPN. Готово! 🔒',
+                                'btns'  => [],
+                            ],
+                        ],
                     ],
-                    [
-                        'icon'  => 'check',
-                        'title' => '🌐 Подключение и использование',
-                        'desc'  => 'В главном разделе нажмите большую кнопку включения в центре 🔘 для подключения к VPN 🔒. Не забудьте выбрать сервер 🌍 в списке серверов. При необходимости выберите другой сервер из списка.',
-                        'btns'  => [],
+
+                    'ios' => [
+                        'label' => '🍎 iOS',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Откройте страницу в App Store 🛍️ и установите современный клиент INCY.',
+                                'btns'  => [
+                                    ['text' => '🍎 App Store', 'href' => 'https://apps.apple.com/ru/app/incy/id6756943388', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇 — приложение INCY откроется, и подписка добавится автоматически ✨',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'Откройте приложение 📱, выберите сервер 🌍 из списка и включите VPN. Готово! 🔒',
+                                'btns'  => [],
+                            ],
+                        ],
+                    ],
+
+                    'macos' => [
+                        'label' => '🍏 macOS',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Выберите версию, подходящую для процессора вашего Mac 💻, скачайте и установите приложение INCY.',
+                                'btns'  => [
+                                    ['text' => '🍎 Apple Silicon (M-процессоры)', 'href' => 'https://github.com/INCY-DEV/incy-platforms/releases/latest/download/incy-macos-arm64.dmg', 'type' => 'ext'],
+                                    ['text' => '🖥️ Mac Intel',                   'href' => 'https://github.com/INCY-DEV/incy-platforms/releases/latest/download/incy-macos-intel.dmg', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇 — приложение INCY откроется, и подписка добавится автоматически ✨',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'Откройте приложение INCY 📱, выберите сервер 🌍 и нажмите кнопку подключения 🔘',
+                                'btns'  => [],
+                            ],
+                        ],
+                    ],
+
+                    'appletv' => [
+                        'label' => '📺 Apple TV',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Откройте поиск в App Store 🛍️ на вашем Apple TV, найдите приложение INCY и установите его.',
+                                'btns'  => [
+                                    ['text' => '🍎 App Store', 'href' => 'https://apps.apple.com/ru/app/incy/id6756943388', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇, чтобы добавить подписку, если вы открыли страницу подписки на телевизоре 📺',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'Откройте приложение на ТВ 📺, выберите нужную страну 🌍 и нажмите кнопку подключения 🔘',
+                                'btns'  => [],
+                            ],
+                        ],
+                    ],
+
+                    'androidtv' => [
+                        'label' => '📺 Android TV',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Установите INCY из Google Play 🛒 или скачайте APK-файл 📦 напрямую.',
+                                'btns'  => [
+                                    ['text' => '▶️ Google Play', 'href' => 'https://play.google.com/store/apps/details?id=llc.itdev.incy', 'type' => 'ext'],
+                                    ['text' => '📥 Скачать APK',  'href' => 'https://github.com/INCY-DEV/incy-platforms/releases/latest/download/Incy.apk', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇, чтобы добавить подписку, если вы открыли страницу подписки на телевизоре 📺',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'Откройте приложение 📺, выберите сервер 🌍 из списка и включите VPN. Готово! 🔒',
+                                'btns'  => [],
+                            ],
+                        ],
                     ],
                 ],
             ],
 
-            'android' => [
-                'label' => '🤖 Android',
-                'steps' => [
-                    [
-                        'icon'  => 'download',
-                        'title' => '📥 Установка приложения',
-                        'desc'  => 'Откройте страницу в Google Play 🛒 и установите приложение. Или установите из APK файла 📦 напрямую, если Google Play не работает.',
-                        'btns'  => [
-                            ['text' => '▶️ Открыть в Google Play', 'href' => 'https://play.google.com/store/apps/details?id=com.happproxy', 'type' => 'ext'],
-                            ['text' => '📥 Скачать APK',           'href' => 'https://github.com/Happ-proxy/happ-android/releases/latest/download/Happ.apk', 'type' => 'ext'],
+            'happ' => [
+                'label' => 'Happ',
+                'platforms' => [
+                    'windows' => [
+                        'label' => '🖥️ Windows',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Выберите подходящую версию для вашего устройства 💻, нажмите на кнопку ниже и установите приложение.',
+                                'btns'  => [
+                                    ['text' => 'Windows', 'href' => 'https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.x64.exe', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇 — приложение откроется, и подписка добавится автоматически ✨',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'В главном разделе нажмите большую кнопку включения в центре 🔘 для подключения к VPN 🔒. Не забудьте выбрать сервер 🌍 в списке серверов. При необходимости выберите другой сервер из списка.',
+                                'btns'  => [],
+                            ],
                         ],
                     ],
-                    [
-                        'icon'  => 'cloud',
-                        'title' => '🔗 Добавление подписки',
-                        'desc'  => 'Нажмите кнопку ниже 👇, чтобы добавить подписку ✨',
-                        'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
-                    ],
-                    [
-                        'icon'  => 'check',
-                        'title' => '🌐 Подключение и использование',
-                        'desc'  => 'Откройте приложение 📱 и подключитесь к серверу 🔒',
-                        'btns'  => [],
-                    ],
-                ],
-            ],
 
-            'ios' => [
-                'label' => '🍎 iOS',
-                'steps' => [
-                    [
-                        'icon'  => 'download',
-                        'title' => '📥 Установка приложения',
-                        'desc'  => 'Откройте страницу в App Store 🛍️ и установите приложение. Запустите его, в окне разрешения VPN-конфигурации нажмите Allow ✅ и введите свой пароль 🔐',
-                        'btns'  => [
-                            ['text' => '🍎 App Store (RU)',     'href' => 'https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973', 'type' => 'ext'],
-                            ['text' => '🌍 App Store (Global)', 'href' => 'https://apps.apple.com/us/app/happ-proxy-utility/id6504287215',       'type' => 'ext'],
+                    'android' => [
+                        'label' => '🤖 Android',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Откройте страницу в Google Play 🛒 и установите приложение. Или установите из APK файла 📦 напрямую, если Google Play не работает.',
+                                'btns'  => [
+                                    ['text' => '▶️ Открыть в Google Play', 'href' => 'https://play.google.com/store/apps/details?id=com.happproxy', 'type' => 'ext'],
+                                    ['text' => '📥 Скачать APK',           'href' => 'https://github.com/Happ-proxy/happ-android/releases/latest/download/Happ.apk', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇, чтобы добавить подписку ✨',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'Откройте приложение 📱 и подключитесь к серверу 🔒',
+                                'btns'  => [],
+                            ],
                         ],
                     ],
-                    [
-                        'icon'  => 'cloud',
-                        'title' => '🔗 Добавление подписки',
-                        'desc'  => 'Нажмите кнопку ниже 👇 — приложение откроется, и подписка добавится автоматически ✨',
-                        'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
-                    ],
-                    [
-                        'icon'  => 'check',
-                        'title' => '🌐 Подключение и использование',
-                        'desc'  => 'В главном разделе нажмите большую кнопку включения в центре 🔘 для подключения к VPN 🔒. Не забудьте выбрать сервер 🌍 в списке серверов. При необходимости выберите другой сервер из списка.',
-                        'btns'  => [],
-                    ],
-                ],
-            ],
 
-            'macos' => [
-                'label' => '🍏 macOS',
-                'steps' => [
-                    [
-                        'icon'  => 'download',
-                        'title' => '📥 Установка приложения',
-                        'desc'  => 'Выберите подходящую версию для вашего устройства 💻, нажмите на кнопку ниже и установите приложение.',
-                        'btns'  => [
-                            ['text' => '🍎 App Store (RU)',     'href' => 'https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973', 'type' => 'ext'],
-                            ['text' => '🌍 App Store (Global)', 'href' => 'https://apps.apple.com/us/app/happ-proxy-utility/id6504287215',       'type' => 'ext'],
+                    'ios' => [
+                        'label' => '🍎 iOS',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Откройте страницу в App Store 🛍️ и установите приложение. Запустите его, в окне разрешения VPN-конфигурации нажмите Allow ✅ и введите свой пароль 🔐',
+                                'btns'  => [
+                                    ['text' => '🍎 App Store (RU)',     'href' => 'https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973', 'type' => 'ext'],
+                                    ['text' => '🌍 App Store (Global)', 'href' => 'https://apps.apple.com/us/app/happ-proxy-utility/id6504287215',       'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇 — приложение откроется, и подписка добавится автоматически ✨',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'В главном разделе нажмите большую кнопку включения в центре 🔘 для подключения к VPN 🔒. Не забудьте выбрать сервер 🌍 в списке серверов. При необходимости выберите другой сервер из списка.',
+                                'btns'  => [],
+                            ],
                         ],
                     ],
-                    [
-                        'icon'  => 'cloud',
-                        'title' => '🔗 Добавление подписки',
-                        'desc'  => 'Нажмите кнопку ниже 👇 — приложение откроется, и подписка добавится автоматически ✨',
-                        'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
-                    ],
-                    [
-                        'icon'  => 'check',
-                        'title' => '🌐 Подключение и использование',
-                        'desc'  => 'В главном разделе нажмите большую кнопку включения в центре 🔘 для подключения к VPN 🔒. Не забудьте выбрать сервер 🌍 в списке серверов. При необходимости выберите другой сервер из списка.',
-                        'btns'  => [],
-                    ],
-                ],
-            ],
 
-            'linux' => [
-                'label' => '🐧 Linux',
-                'steps' => [
-                    [
-                        'icon'  => 'download',
-                        'title' => '📥 Установка приложения',
-                        'desc'  => 'Выберите подходящую версию для вашего дистрибутива 🐧, нажмите на кнопку ниже и установите приложение.',
-                        'btns'  => [
-                            ['text' => '📦 deb', 'href' => 'https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.linux.x64.deb',         'type' => 'ext'],
-                            ['text' => '📦 rpm', 'href' => 'https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.linux.x64.rpm',         'type' => 'ext'],
-                            ['text' => '📦 pkg', 'href' => 'https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.linux.x64.pkg.tar.zst', 'type' => 'ext'],
+                    'macos' => [
+                        'label' => '🍏 macOS',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Выберите подходящую версию для вашего устройства 💻, нажмите на кнопку ниже и установите приложение.',
+                                'btns'  => [
+                                    ['text' => '🍎 App Store (RU)',     'href' => 'https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973', 'type' => 'ext'],
+                                    ['text' => '🌍 App Store (Global)', 'href' => 'https://apps.apple.com/us/app/happ-proxy-utility/id6504287215',       'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇 — приложение откроется, и подписка добавится автоматически ✨',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'В главном разделе нажмите большую кнопку включения в центре 🔘 для подключения к VPN 🔒. Не забудьте выбрать сервер 🌍 в списке серверов. При необходимости выберите другой сервер из списка.',
+                                'btns'  => [],
+                            ],
                         ],
                     ],
-                    [
-                        'icon'  => 'cloud',
-                        'title' => '🔗 Добавление подписки',
-                        'desc'  => 'Нажмите кнопку ниже 👇 — приложение откроется, и подписка добавится автоматически ✨',
-                        'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
-                    ],
-                    [
-                        'icon'  => 'check',
-                        'title' => '🌐 Подключение и использование',
-                        'desc'  => 'В главном разделе нажмите большую кнопку включения в центре 🔘 для подключения к VPN 🔒. Не забудьте выбрать сервер 🌍 в списке серверов. При необходимости выберите другой сервер из списка.',
-                        'btns'  => [],
-                    ],
-                ],
-            ],
 
-            'appletv' => [
-                'label' => '📺 Apple TV',
-                'steps' => [
-                    [
-                        'icon'  => 'download',
-                        'title' => '📥 Установка приложения',
-                        'desc'  => 'Откройте страницу в App Store 🛍️ на Apple TV и установите приложение. Запустите его, предоставьте разрешение на VPN-конфигурацию ✅, если потребуется, и введите свой пароль 🔐',
-                        'btns'  => [
-                            ['text' => '🍎 App Store', 'href' => 'https://apps.apple.com/us/app/happ-proxy-utility-for-tv/id6748297274', 'type' => 'ext'],
+                    'linux' => [
+                        'label' => '🐧 Linux',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Выберите подходящую версию для вашего дистрибутива 🐧, нажмите на кнопку ниже и установите приложение.',
+                                'btns'  => [
+                                    ['text' => '📦 deb', 'href' => 'https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.linux.x64.deb',         'type' => 'ext'],
+                                    ['text' => '📦 rpm', 'href' => 'https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.linux.x64.rpm',         'type' => 'ext'],
+                                    ['text' => '📦 pkg', 'href' => 'https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.linux.x64.pkg.tar.zst', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇 — приложение откроется, и подписка добавится автоматически ✨',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'В главном разделе нажмите большую кнопку включения в центре 🔘 для подключения к VPN 🔒. Не забудьте выбрать сервер 🌍 в списке серверов. При необходимости выберите другой сервер из списка.',
+                                'btns'  => [],
+                            ],
                         ],
                     ],
-                    [
-                        'icon'  => 'gear',
-                        'title' => '📖 Инструкции по установке',
-                        'desc'  => 'Подробные инструкции 📋, чтобы помочь вам настроить Happ на вашем устройстве.',
-                        'btns'  => [
-                            ['text' => '🇷🇺 На русском',   'href' => 'https://www.happ.su/main/ru/faq/android-tv', 'type' => 'ext'],
-                            ['text' => '🇬🇧 На английском', 'href' => 'https://www.happ.su/main/faq/android-tv',    'type' => 'ext'],
-                        ],
-                    ],
-                    [
-                        'icon'  => 'cloud',
-                        'title' => '🔗 Добавление подписки',
-                        'desc'  => 'Нажмите кнопку ниже 👇, чтобы добавить подписку, если вы открыли страницу подписки на телевизоре 📺',
-                        'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
-                    ],
-                    [
-                        'icon'  => 'check',
-                        'title' => '🌐 Подключение и использование',
-                        'desc'  => 'Откройте приложение 📺 и подключитесь к серверу 🔒',
-                        'btns'  => [],
-                    ],
-                ],
-            ],
 
-            'androidtv' => [
-                'label' => '📺 Android TV',
-                'steps' => [
-                    [
-                        'icon'  => 'download',
-                        'title' => '📥 Установка приложения',
-                        'desc'  => 'Откройте страницу в Google Play 🛒 и установите приложение. Или установите из APK файла 📦 напрямую, если Google Play не работает.',
-                        'btns'  => [
-                            ['text' => '▶️ Открыть в Google Play', 'href' => 'https://play.google.com/store/apps/details?id=com.happproxy', 'type' => 'ext'],
-                            ['text' => '📥 Скачать APK',           'href' => 'https://github.com/Happ-proxy/happ-android/releases/latest/download/Happ.apk', 'type' => 'ext'],
+                    'appletv' => [
+                        'label' => '📺 Apple TV',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Откройте страницу в App Store 🛍️ на Apple TV и установите приложение. Запустите его, предоставьте разрешение на VPN-конфигурацию ✅, если потребуется, и введите свой пароль 🔐',
+                                'btns'  => [
+                                    ['text' => '🍎 App Store', 'href' => 'https://apps.apple.com/us/app/happ-proxy-utility-for-tv/id6748297274', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'gear',
+                                'title' => '📖 Инструкции по установке',
+                                'desc'  => 'Подробные инструкции 📋, чтобы помочь вам настроить Happ на вашем устройстве.',
+                                'btns'  => [
+                                    ['text' => '🇷🇺 На русском',   'href' => 'https://www.happ.su/main/ru/faq/android-tv', 'type' => 'ext'],
+                                    ['text' => '🇬🇧 На английском', 'href' => 'https://www.happ.su/main/faq/android-tv',    'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇, чтобы добавить подписку, если вы открыли страницу подписки на телевизоре 📺',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'Откройте приложение 📺 и подключитесь к серверу 🔒',
+                                'btns'  => [],
+                            ],
                         ],
                     ],
-                    [
-                        'icon'  => 'gear',
-                        'title' => '📖 Инструкции по установке',
-                        'desc'  => 'Подробные инструкции 📋, чтобы помочь вам настроить Happ на вашем устройстве.',
-                        'btns'  => [
-                            ['text' => '🇷🇺 На русском',   'href' => 'https://www.happ.su/main/ru/faq/android-tv', 'type' => 'ext'],
-                            ['text' => '🇬🇧 На английском', 'href' => 'https://www.happ.su/main/faq/android-tv',    'type' => 'ext'],
+
+                    'androidtv' => [
+                        'label' => '📺 Android TV',
+                        'steps' => [
+                            [
+                                'icon'  => 'download',
+                                'title' => '📥 Установка приложения',
+                                'desc'  => 'Откройте страницу в Google Play 🛒 и установите приложение. Или установите из APK файла 📦 напрямую, если Google Play не работает.',
+                                'btns'  => [
+                                    ['text' => '▶️ Открыть в Google Play', 'href' => 'https://play.google.com/store/apps/details?id=com.happproxy', 'type' => 'ext'],
+                                    ['text' => '📥 Скачать APK',           'href' => 'https://github.com/Happ-proxy/happ-android/releases/latest/download/Happ.apk', 'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'gear',
+                                'title' => '📖 Инструкции по установке',
+                                'desc'  => 'Подробные инструкции 📋, чтобы помочь вам настроить Happ на вашем устройстве.',
+                                'btns'  => [
+                                    ['text' => '🇷🇺 На русском',   'href' => 'https://www.happ.su/main/ru/faq/android-tv', 'type' => 'ext'],
+                                    ['text' => '🇬🇧 На английском', 'href' => 'https://www.happ.su/main/faq/android-tv',    'type' => 'ext'],
+                                ],
+                            ],
+                            [
+                                'icon'  => 'cloud',
+                                'title' => '🔗 Добавление подписки',
+                                'desc'  => 'Нажмите кнопку ниже 👇, чтобы добавить подписку, если вы открыли страницу подписки на телевизоре 📺',
+                                'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
+                            ],
+                            [
+                                'icon'  => 'check',
+                                'title' => '🌐 Подключение и использование',
+                                'desc'  => 'Откройте приложение 📺 и подключитесь к серверу 🔒',
+                                'btns'  => [],
+                            ],
                         ],
-                    ],
-                    [
-                        'icon'  => 'cloud',
-                        'title' => '🔗 Добавление подписки',
-                        'desc'  => 'Нажмите кнопку ниже 👇, чтобы добавить подписку, если вы открыли страницу подписки на телевизоре 📺',
-                        'btns'  => [['text' => 'Добавить подписку', 'type' => 'sub']],
-                    ],
-                    [
-                        'icon'  => 'check',
-                        'title' => '🌐 Подключение и использование',
-                        'desc'  => 'Откройте приложение 📺 и подключитесь к серверу 🔒',
-                        'btns'  => [],
                     ],
                 ],
             ],
