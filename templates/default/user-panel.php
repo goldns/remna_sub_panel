@@ -141,7 +141,7 @@
                             <?php if ($agentLine !== ''): ?><div class="hwid-device-meta hwid-device-agent"><?= $agentLine ?></div><?php endif ?>
                             <div class="hwid-device-meta hwid-device-seen"><?= htmlspecialchars($metaBottom) ?></div>
                         </div>
-                        <?php if (ALLOW_DELETE_HWID || DEBUG_MODE): ?>
+                        <?php if (ALLOW_DELETE_HWID): ?>
                         <button class="hwid-delete-btn" type="button" title="Удалить устройство" onclick="hwidDelete(this)">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
                         </button>
@@ -189,7 +189,7 @@
                             <?php if ($agentLine !== ''): ?><div class="hwid-device-meta hwid-device-agent"><?= $agentLine ?></div><?php endif ?>
                             <div class="hwid-device-meta hwid-device-seen"><?= htmlspecialchars($metaBottom) ?></div>
                         </div>
-                        <?php if (ALLOW_DELETE_HWID || DEBUG_MODE): ?>
+                        <?php if (ALLOW_DELETE_HWID): ?>
                         <button class="hwid-delete-btn" type="button" title="Удалить устройство" onclick="hwidDelete(this)">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
                         </button>

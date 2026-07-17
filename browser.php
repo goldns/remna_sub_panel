@@ -215,7 +215,9 @@ function serveBrowser(string $shortUuid, array $config): void
     $debug = null;
     if (DEBUG_MODE) {
         $safeConfig = $config;
-        $safeConfig['api_token'] = empty($config['api_token']) ? '(not set)' : '[hidden]';
+        foreach (['api_token', 'egames_cookie'] as $secretKey) {
+            $safeConfig[$secretKey] = empty($config[$secretKey]) ? '(not set)' : '[hidden]';
+        }
 
         $debugHeaders = array_map(
             fn($h) => str_starts_with($h, 'Authorization:') ? 'Authorization: Bearer [hidden]' : $h,
