@@ -24,6 +24,7 @@ define('PROJECT_NAME',     $_projectName);
 define('SHOW_QR',          (bool) ($config['show_qr']          ?? false));
 define('COPYRIGHT',        $_copyright);
 define('ENCRYPT_SUB_LINK', (bool) ($config['encrypt_sub_link'] ?? true));
+define('TRUSTED_PROXIES',  (array) ($config['trusted_proxies'] ?? ['127.0.0.1', '::1']));
 define('DEBUG_MODE',       !empty($config['debug_ip']) && clientIpMatchesDebugList($config['debug_ip']));
 define('ALLOW_DELETE_HWID', (bool) ($config['allow_delete_hwid'] ?? false));
 define('INSTALL_CLIENTS',   (array) ($config['install_clients']  ?? ['incy', 'happ']));
@@ -44,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'delete
         exit;
     }
     
-    if (!ALLOW_DELETE_HWID && !DEBUG_MODE) {
+    if (!ALLOW_DELETE_HWID) {
         header('Content-Type: application/json');
         http_response_code(403);
         echo json_encode(['ok' => false, 'error' => 'Forbidden']);

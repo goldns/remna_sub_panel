@@ -123,13 +123,24 @@ function currentUrl(): string
     return $proto . '://' . $host . ($_SERVER['REQUEST_URI'] ?? '/');
 }
 
-// Реальный IP клиента с учётом X-Forwarded-For от доверенного прокси
+// Реальный IP клиента. X-Forwarded-For учитывается ТОЛЬКО если запрос пришёл
+// от доверенного прокси (TRUSTED_PROXIES: IP или CIDR). Иначе — REMOTE_ADDR сокета.
+// Без этого любой клиент мог бы подделать XFF и обойти IP-контроль (debug_ip, checkers).
 function clientIp(): string
 {
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        return trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+    $remote = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    if (empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return $remote;
+
+    $trusted = defined('TRUSTED_PROXIES') ? TRUSTED_PROXIES : [];
+    foreach ($trusted as $entry) {
+        $entry = trim((string) $entry);
+        if ($entry === '') continue;
+        $match = str_contains($entry, '/') ? ipInCidr($remote, $entry) : ($remote === $entry);
+        if ($match) {
+            return trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+        }
     }
-    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    return $remote;
 }
 
 // GET-запрос к API Remnawave, возвращает код, заголовки, тело и время выполнения
