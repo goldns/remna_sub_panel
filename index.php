@@ -13,7 +13,7 @@ require __DIR__ . '/template.php';
 require __DIR__ . '/happ.php';
 require __DIR__ . '/browser.php';
 
-define('VERSION',          '1.9.2');
+define('VERSION',          '1.10.1');
 define('SHOW_VERSION',     (bool) ($config['show_version'] ?? false));
 define('TEMPLATE_DIR',     __DIR__ . '/templates/' . ($config['template'] ?? 'default'));
 $_projectName = (string) ($config['project_name'] ?? '');
@@ -65,17 +65,11 @@ if (!preg_match('/^[A-Za-z0-9_\-]{4,64}$/', $shortUuid)) {
 // Определяем тип клиента и направляем запрос
 // ---------------------------------------------------------------------------
 $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-$isHapp    = false;
-if (preg_match('/^Happ\/[\d.]+\//', $userAgent)) {
-    $isHapp = true;
-}
-if (str_starts_with($userAgent, 'INCY/')) {
-    $isHapp = true;
-}
-if (str_starts_with($userAgent, 'v2raytun/')) {
-    $isHapp = true;
-}
-$hwid      = $_SERVER['HTTP_X_HWID'] ?? '';
+$hwid      = trim((string) ($_SERVER['HTTP_X_HWID'] ?? ''));
+
+// Happ умеет менять User-Agent на произвольный, поэтому X-HWID имеет приоритет
+// над проверкой известных User-Agent. Известные UA без HWID по-прежнему получат 403.
+$isHapp = isSubscriptionClientRequest($userAgent, $hwid);
 
 if (DEBUG_MODE && isset($_GET['happ'])) {
     serveHappDebugView($shortUuid, $config);

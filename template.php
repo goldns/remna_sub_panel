@@ -39,16 +39,25 @@ function renderErrorPage(int $code, string $message, ?array $debug = null): void
     include TEMPLATE_DIR . '/error-page.php';
 }
 
-// Строит URL для кнопки «Продлить» из шаблона. Плейсхолдеры:
+// Что делает: строит URL кнопки «Продлить» из шаблона и данных пользователя.
+// Что принимает на вход: шаблон URL, shortUuid, данные публичной подписки и числовой userId.
+// Что возвращает: готовый URL с подставленными плейсхолдерами.
+// Плейсхолдеры:
 //   {shortUuid}       — shortUuid из URL
-//   {uuid}            — полный UUID пользователя (требует api_token)
+//   {userId}          — числовой ID пользователя (требует api_token)
 //   {B64:FIELDNAME}   — base64_encode поля user[fieldname] (напр. {B64:USERNAME})
-function buildRenewUrl(string $template, string $shortUuid, array $user, string $fullUuid = ''): string
+function buildRenewUrl(string $template, string $shortUuid, array $user, string $userId = ''): string
 {
-    $result = str_replace('{shortUuid}', $shortUuid, $template);
-    if ($fullUuid !== '') {
-        $result = str_replace('{uuid}', $fullUuid, $result);
+    if (str_contains($template, '{uuid}')) {
+        error_log('Плейсхолдер {uuid} не поддерживается Remnawave 3.x; используйте {userId}.');
+        return '';
     }
+
+    $result = str_replace(
+        ['{shortUuid}', '{userId}'],
+        [$shortUuid, $userId],
+        $template
+    );
     return (string) preg_replace_callback('/\{B64:([A-Za-z_]+)\}/', function ($m) use ($user) {
         $value = $user[strtolower($m[1])] ?? '';
         return base64_encode((string) $value);

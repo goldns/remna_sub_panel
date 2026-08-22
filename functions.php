@@ -1,6 +1,21 @@
 <?php
 declare(strict_types=1);
 
+// Что делает: определяет, должен ли запрос обрабатываться как запрос подписочного клиента.
+// Что принимает на вход: строку User-Agent и значение заголовка X-HWID.
+// Что возвращает: true для запроса с X-HWID или известным User-Agent Happ, INCY, V2RayTun либо xray.
+function isSubscriptionClientRequest(string $userAgent, string $hwid): bool
+{
+    if (trim($hwid) !== '') {
+        return true;
+    }
+
+    return preg_match('/^Happ\/[\d.]+\//', $userAgent) === 1
+        || str_starts_with($userAgent, 'INCY/')
+        || str_starts_with($userAgent, 'v2raytun/')
+        || strcasecmp($userAgent, 'xray') === 0;
+}
+
 // ---------------------------------------------------------------------------
 // APCu-кэш (деградирует до no-op если APCu недоступен или APCU_CACHE=false)
 // ---------------------------------------------------------------------------

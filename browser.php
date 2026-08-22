@@ -100,14 +100,17 @@ function fetchCheckerProxies(array $config): ?array
     ];
 }
 
+// Что делает: удаляет выбранное HWID-устройство пользователя через Remnawave API 3.x.
+// Что принимает на вход: shortUuid пользователя из URL и массив конфигурации приложения.
+// Что возвращает: ничего; отправляет клиенту JSON-ответ и соответствующий HTTP-код.
 function handleDeleteHwid(string $shortUuid, array $config): void
 {
     header('Content-Type: application/json');
 
     $hwid = trim($_POST['hwid'] ?? '');
-    if ($hwid === '') {
+    if (!preg_match('/^[A-Za-z0-9=-]{10,64}$/', $hwid)) {
         http_response_code(400);
-        echo json_encode(['ok' => false, 'error' => 'Missing hwid']);
+        echo json_encode(['ok' => false, 'error' => 'Invalid hwid']);
         return;
     }
 
@@ -124,12 +127,12 @@ function handleDeleteHwid(string $shortUuid, array $config): void
     }
     $isWl       = !empty($_POST['wl']);
 
-    $targetUuid = $isWl
+    $targetShortUuid = $isWl
         ? $shortUuid . ($config['wl_suffix'] ?? '_WL')
         : $shortUuid;
 
     $infoResult = apiGet(
-        $base . '/api/sub/' . rawurlencode($targetUuid) . '/info',
+        $base . '/api/sub/' . rawurlencode($targetShortUuid) . '/info',
         array_merge(['Accept: application/json', 'X-Forwarded-For: ' . clientIp()], $authHeaders)
     );
 
@@ -160,22 +163,22 @@ function handleDeleteHwid(string $shortUuid, array $config): void
     }
 
     $userDetail = json_decode($userDetailResult['body'], true);
-    $userUuid   = $userDetail['response']['uuid'] ?? '';
+    $userId     = $userDetail['response']['id'] ?? null;
 
-    if ($userUuid === '') {
+    if (!is_int($userId) || $userId <= 0) {
         http_response_code(404);
-        echo json_encode(['ok' => false, 'error' => 'UUID not found']);
+        echo json_encode(['ok' => false, 'error' => 'User ID not found']);
         return;
     }
 
     $deleteResult = apiPost(
         $base . '/api/hwid/devices/delete',
-        json_encode(['userUuid' => $userUuid, 'hwid' => $hwid]),
+        json_encode(['userId' => $userId, 'hwid' => $hwid]),
         array_merge($authHeaders, ['Content-Type: application/json'])
     );
 
     if ($deleteResult['code'] === 200) {
-        cacheDel('rsb_hwid_' . $userUuid);
+        cacheDel('rsb_hwid_' . $userId);
         echo json_encode(['ok' => true]);
     } else {
         http_response_code($deleteResult['code'] ?: 502);
@@ -183,6 +186,9 @@ function handleDeleteHwid(string $shortUuid, array $config): void
     }
 }
 
+// Что делает: загружает данные подписки и HWID через Remnawave API и выводит браузерную панель.
+// Что принимает на вход: shortUuid пользователя и массив конфигурации приложения.
+// Что возвращает: ничего; формирует полный HTTP-ответ страницы либо страницы ошибки.
 function serveBrowser(string $shortUuid, array $config): void
 {
     $url = rtrim($config['remnawave_url'], '/') . '/api/sub/' . rawurlencode($shortUuid) . '/info';
@@ -300,7 +306,7 @@ function serveBrowser(string $shortUuid, array $config): void
 
         if ($userDetailResult['code'] === 200) {
             $userDetail = json_decode($userDetailResult['body'], true);
-            $fullUuid   = $userDetail['response']['uuid']            ?? null;
+            $userId     = $userDetail['response']['id']              ?? null;
             $hwidLimit  = $userDetail['response']['hwidDeviceLimit'] ?? null;
 
             $hwidCount     = 0;
@@ -309,9 +315,9 @@ function serveBrowser(string $shortUuid, array $config): void
             $hwidApiMs     = null;
             $hwidUrl       = null;
 
-            if ($fullUuid) {
-                $hwidUrl       = $base . '/api/hwid/devices/' . rawurlencode($fullUuid);
-                $hwidResult    = cachedApiGet('rsb_hwid_' . $fullUuid, $hwidUrl, $authHeaders, CACHE_TTL);
+            if (is_int($userId) && $userId > 0) {
+                $hwidUrl       = $base . '/api/hwid/devices/' . rawurlencode((string) $userId);
+                $hwidResult    = cachedApiGet('rsb_hwid_' . $userId, $hwidUrl, $authHeaders, CACHE_TTL);
                 $hwidApiStatus = $hwidResult['code'];
                 $hwidApiMs     = $hwidResult['ms'];
                 if ($hwidResult['code'] === 200) {
@@ -333,10 +339,10 @@ function serveBrowser(string $shortUuid, array $config): void
                 $wlUserDetailResult = cachedApiGet('rsb_udet_' . $wlUsername, $base . '/api/users/by-username/' . rawurlencode($wlUsername), $authHeaders, CACHE_TTL * 5);
                 if ($wlUserDetailResult['code'] === 200) {
                     $wlUserDetail  = json_decode($wlUserDetailResult['body'], true);
-                    $wlFullUuid    = $wlUserDetail['response']['uuid']            ?? null;
+                    $wlUserId      = $wlUserDetail['response']['id']              ?? null;
                     $wlHwidLimit   = $wlUserDetail['response']['hwidDeviceLimit'] ?? null;
-                    if ($wlFullUuid) {
-                        $wlHwidResult = cachedApiGet('rsb_hwid_' . $wlFullUuid, $base . '/api/hwid/devices/' . rawurlencode($wlFullUuid), $authHeaders, CACHE_TTL);
+                    if (is_int($wlUserId) && $wlUserId > 0) {
+                        $wlHwidResult = cachedApiGet('rsb_hwid_' . $wlUserId, $base . '/api/hwid/devices/' . rawurlencode((string) $wlUserId), $authHeaders, CACHE_TTL);
                         if ($wlHwidResult['code'] === 200) {
                             $wlHwidData  = json_decode($wlHwidResult['body'], true);
                             $wlHwidInfo  = [
@@ -360,7 +366,7 @@ function serveBrowser(string $shortUuid, array $config): void
                 $debug['hwid_user_url']     = $userDetailUrl;
                 $debug['hwid_user_status']  = $userDetailResult['code'];
                 $debug['hwid_user_ms']      = $userDetailResult['ms'];
-                $debug['hwid_uuid']         = $fullUuid;
+                $debug['hwid_user_id']      = $userId;
                 $debug['hwid_limit']        = $hwidLimit;
                 $debug['hwid_api_url']      = $hwidUrl;
                 $debug['hwid_api_status']   = $hwidApiStatus;
@@ -402,16 +408,18 @@ function serveBrowser(string $shortUuid, array $config): void
         $debug['checker'] = $GLOBALS['__checker_debug'] ?? null;
     }
 
-    $renewUuid = isset($userDetail) ? ($userDetail['response']['uuid'] ?? '') : '';
+    $renewUserId = isset($userDetail) && is_int($userDetail['response']['id'] ?? null)
+        ? (string) $userDetail['response']['id']
+        : '';
 
     $renewUrl = '';
     if (($config['payment_url'] ?? '') !== '') {
-        $renewUrl = buildRenewUrl($config['payment_url'], $shortUuid, $user, $renewUuid);
+        $renewUrl = buildRenewUrl($config['payment_url'], $shortUuid, $user, $renewUserId);
     }
 
     $renewUrlTg = '';
     if (($config['payment_url_tg'] ?? '') !== '') {
-        $renewUrlTg = buildRenewUrl($config['payment_url_tg'], $shortUuid, $user, $renewUuid);
+        $renewUrlTg = buildRenewUrl($config['payment_url_tg'], $shortUuid, $user, $renewUserId);
     }
 
     renderUserPanel($user, $debug, $wlUser, $hwidInfo, $supportUrl, $wlHwidInfo, $checkerProxies, $renewUrl, $renewUrlTg);

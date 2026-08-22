@@ -68,8 +68,8 @@
                     <code style="color:<?= $hUserColor ?>"><?= $debug['hwid_user_status'] ?> · <?= $debug['hwid_user_ms'] ?> мс</code>
                 </div>
                 <div class="dbg-row"><span>User URL</span><code><?= htmlspecialchars($debug['hwid_user_url']) ?></code></div>
-                <?php if ($debug['hwid_uuid']): ?>
-                <div class="dbg-row"><span>UUID</span><code><?= htmlspecialchars($debug['hwid_uuid']) ?></code></div>
+                <?php if ($debug['hwid_user_id']): ?>
+                <div class="dbg-row"><span>User ID</span><code><?= htmlspecialchars((string) $debug['hwid_user_id']) ?></code></div>
                 <?php $hDevColor = ($debug['hwid_api_status'] ?? null) === 200 ? '#4ade80' : '#f87171' ?>
                 <div class="dbg-row">
                     <span>Devices API</span>
