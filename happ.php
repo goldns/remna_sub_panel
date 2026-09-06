@@ -186,7 +186,7 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
         // 5b. Активный пользователь: оригинал + WL (если включено и статус active)
         // WL-тело подмешивается всегда когда /sub/{wl_uuid} вернул 200.
         // Дополнительно через /sub/{wl_uuid}/info узнаём статус WL — он влияет ТОЛЬКО на
-        // add_servers_base64 в режиме 'wl' (доп. серверы привязываются к ACTIVE-WL).
+        // add_servers_base64_WL (доп. серверы привязываются к ACTIVE-WL).
         $extra            = null;
         $wlStatusIsActive = false;
         if (($config['enable_wl'] ?? true) && $status === 'active') {
@@ -213,13 +213,14 @@ function serveHapp(string $shortUuid, array $config, string $forceHwid = ''): vo
             }
         }
         $wlOnTop = ($config['wl_position'] ?? 'bottom') === 'top';
-        // add_servers_attach: 'main' (по умолчанию) — добавляем при ACTIVE всегда;
-        //                     'wl' — только если WL-пользователь сам имеет userStatus=ACTIVE
-        //                     (если WL=LIMITED/EXPIRED/DISABLED — WL-тело всё равно подмешивается,
-        //                      но доп. серверы НЕ добавляются)
-        $attachMode = ($config['add_servers_attach'] ?? 'main') === 'wl' ? 'wl' : 'main';
-        $allowExtra = $status === 'active' && ($attachMode === 'main' || $wlStatusIsActive);
-        happOutputBody($result, $extra, $config, $shuffleMain, $daysLeft, false, $wlOnTop, $allowExtra);
+        // Доп. серверы из конфига (только base64):
+        //   add_servers_base64_MAIN — в конец сегмента основных серверов, всегда при ACTIVE;
+        //   add_servers_base64_WL   — в конец сегмента WL-серверов, только если WL-пользователь
+        //                             сам имеет userStatus=ACTIVE (если WL=LIMITED/EXPIRED/DISABLED —
+        //                             WL-тело всё равно подмешивается, но доп. серверы НЕ добавляются).
+        $allowMainExtra = $status === 'active';
+        $allowWlExtra   = $status === 'active' && $wlStatusIsActive;
+        happOutputBody($result, $extra, $config, $shuffleMain, $daysLeft, false, $wlOnTop, $allowMainExtra, $allowWlExtra);
     }
 }
 
@@ -233,14 +234,26 @@ function cryptoShuffle(array &$arr): void
     }
 }
 
+// Нормализует список доп. серверов из конфига: trim + отбрасывание пустых строк.
+function happExtraServers(array $config, string $key): array
+{
+    return array_values(array_filter(
+        array_map('trim', (array) ($config[$key] ?? [])),
+        fn($s) => $s !== ''
+    ));
+}
+
 // Формирует тело ответа из $main + $extra и отправляет клиенту.
 // Формат (text/plain base64 или JSON) определяется по content-type основного ответа.
 // $shuffleMain  — перемешать серверы основной подписки (только ACTIVE, не WL).
 // $daysLeft     — заменить {EXP_DAY} в именах серверов (>= 0 = заменить).
 // $replaceBody  — true: тело берётся целиком из $extra (EXPIRED); false: слияние (LIMITED/DISABLED/WL).
 // $extraOnTop   — true: $extra размещается ПЕРЕД $main; false: после (по умолчанию).
-// $allowExtraServers — добавлять серверы из add_servers_base64 (только для активной подписки).
-function happOutputBody(array $main, ?array $extra, array $config, bool $shuffleMain = false, int $daysLeft = -1, bool $replaceBody = false, bool $extraOnTop = false, bool $allowExtraServers = false): void
+// $allowMainExtra — добавлять add_servers_base64_MAIN в конец сегмента основных серверов
+//                   (только для активной основной подписки, только base64).
+// $allowWlExtra   — добавлять add_servers_base64_WL в конец сегмента WL-серверов
+//                   (только когда WL-пользователь сам ACTIVE, только base64).
+function happOutputBody(array $main, ?array $extra, array $config, bool $shuffleMain = false, int $daysLeft = -1, bool $replaceBody = false, bool $extraOnTop = false, bool $allowMainExtra = false, bool $allowWlExtra = false): void
 {
     header_remove('Content-Length');
 
@@ -248,31 +261,35 @@ function happOutputBody(array $main, ?array $extra, array $config, bool $shuffle
 
     if (str_contains($contentType, 'text/plain')) {
         if ($replaceBody && $extra !== null) {
+            // EXPIRED — полная замена тела; доп. серверы из конфига не добавляются
             $body = base64_decode(trim($extra['body']), true);
         } else {
-            $body = base64_decode(trim($main['body']), true);
-            if ($body !== false && $shuffleMain) {
-                $lines = array_values(array_filter(explode("\n", $body), fn($l) => trim($l) !== ''));
+            // Сегмент MAIN: серверы основной подписки + add_servers_base64_MAIN
+            $mainBody = base64_decode(trim($main['body']), true);
+            if ($mainBody !== false && $shuffleMain) {
+                $lines = array_values(array_filter(explode("\n", $mainBody), fn($l) => trim($l) !== ''));
                 cryptoShuffle($lines);
-                $body = implode("\n", $lines);
+                $mainBody = implode("\n", $lines);
             }
-            if (!$replaceBody && $extra !== null) {
-                $extraBody = base64_decode(trim($extra['body']), true);
-                if ($body !== false && $extraBody !== false) {
-                    $body = $extraOnTop
-                        ? rtrim($extraBody) . "\n" . ltrim($body)
-                        : rtrim($body) . "\n" . ltrim($extraBody);
-                }
+            $mainExtra = $allowMainExtra ? happExtraServers($config, 'add_servers_base64_MAIN') : [];
+            if ($mainBody !== false && $mainExtra) {
+                $mainBody = rtrim($mainBody) . "\n" . implode("\n", $mainExtra);
             }
-        }
-        // Дополнительные серверы из конфига — добавляются в конец списка
-        // (только base64 и только для активной подписки)
-        $extraServers = $allowExtraServers ? array_values(array_filter(
-            array_map('trim', (array) ($config['add_servers_base64'] ?? [])),
-            fn($s) => $s !== ''
-        )) : [];
-        if ($extraServers && $body !== false) {
-            $body = rtrim($body) . "\n" . implode("\n", $extraServers);
+
+            // Сегмент WL: WL-серверы + add_servers_base64_WL
+            $extraBody = ($extra !== null) ? base64_decode(trim($extra['body']), true) : false;
+            $wlExtra   = $allowWlExtra ? happExtraServers($config, 'add_servers_base64_WL') : [];
+            if ($extraBody !== false && $wlExtra) {
+                $extraBody = rtrim($extraBody) . "\n" . implode("\n", $wlExtra);
+            }
+
+            if ($mainBody !== false && $extraBody !== false) {
+                $body = $extraOnTop
+                    ? rtrim($extraBody) . "\n" . ltrim($mainBody)
+                    : rtrim($mainBody) . "\n" . ltrim($extraBody);
+            } else {
+                $body = $mainBody;
+            }
         }
         if ($daysLeft >= 0 && $body !== false) {
             $body = str_replace(['{EXP_DAY}', '%7BEXP_DAY%7D'], (string) $daysLeft, $body);
@@ -571,7 +588,7 @@ function serveHappDebugView(string $shortUuid, array $config): void
         $wlUrl    = $base . '/api/sub/' . rawurlencode($wlUuid);
         $wlResult = apiGet($wlUrl, $forwardHeaders);
 
-        // Доп. запрос /info — узнаём статус WL (влияет только на add_servers_base64 в режиме 'wl')
+        // Доп. запрос /info — узнаём статус WL (влияет только на add_servers_base64_WL)
         $wlStatusValue = 'unknown';
         if ($wlResult['code'] === 200) {
             $wlInfoUrl    = $base . '/api/sub/' . rawurlencode($wlUuid) . '/info';
