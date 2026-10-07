@@ -3,16 +3,16 @@
 
 <div id="dbg-wrap">
     <div id="dbg-btn-row">
-        <button id="dbg-toggle" onclick="toggleDbg()">🛠 Debug</button>
+        <button id="dbg-toggle" type="button">🛠 Debug</button>
         <a id="dbg-happ-link" href="?happ">📱 Happ</a>
     </div>
     <div id="dbg-panel">
 
         <div class="dbg-tabs">
-            <button class="dbg-tab active" onclick="dbgTab(this,'dbg-pane-info')"><?= t('debug', 'tab_request') ?></button>
-            <button class="dbg-tab" onclick="dbgTab(this,'dbg-pane-raw-req')"><?= t('debug', 'tab_raw_req') ?></button>
-            <button class="dbg-tab" onclick="dbgTab(this,'dbg-pane-raw-resp')"><?= t('debug', 'tab_raw_resp') ?></button>
-            <button class="dbg-tab" onclick="dbgTab(this,'dbg-pane-config')"><?= t('debug', 'tab_config') ?></button>
+            <button class="dbg-tab active" type="button" data-debug-pane="dbg-pane-info"><?= t('debug', 'tab_request') ?></button>
+            <button class="dbg-tab" type="button" data-debug-pane="dbg-pane-raw-req"><?= t('debug', 'tab_raw_req') ?></button>
+            <button class="dbg-tab" type="button" data-debug-pane="dbg-pane-raw-resp"><?= t('debug', 'tab_raw_resp') ?></button>
+            <button class="dbg-tab" type="button" data-debug-pane="dbg-pane-config"><?= t('debug', 'tab_config') ?></button>
         </div>
 
         <!-- TAB: Request info -->

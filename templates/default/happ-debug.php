@@ -81,9 +81,9 @@
         </div>
 
         <div class="hd-tabs">
-            <button class="hd-tab active" onclick="hdTab(this,'hd-pane-headers','hd-main')"><?= t('happ_debug', 'tab_headers') ?></button>
-            <button class="hd-tab" onclick="hdTab(this,'hd-pane-raw-req','hd-main')"><?= t('happ_debug', 'tab_raw_req') ?></button>
-            <button class="hd-tab" onclick="hdTab(this,'hd-pane-raw-resp','hd-main')"><?= t('happ_debug', 'tab_raw_resp') ?></button>
+            <button class="hd-tab active" type="button" data-hd-pane="hd-pane-headers" data-hd-group="hd-main"><?= t('happ_debug', 'tab_headers') ?></button>
+            <button class="hd-tab" type="button" data-hd-pane="hd-pane-raw-req" data-hd-group="hd-main"><?= t('happ_debug', 'tab_raw_req') ?></button>
+            <button class="hd-tab" type="button" data-hd-pane="hd-pane-raw-resp" data-hd-group="hd-main"><?= t('happ_debug', 'tab_raw_resp') ?></button>
         </div>
 
         <div id="hd-pane-headers" class="hd-pane active" data-group="hd-main">
@@ -142,8 +142,8 @@
         <div class="hd-not-found"><?= t('happ_debug', 'wl_not_found') ?></div>
         <?php else: ?>
         <div class="hd-tabs">
-            <button class="hd-tab active" onclick="hdTab(this,'hd-sub-pane-raw-req','hd-sub')"><?= t('happ_debug', 'tab_raw_req') ?></button>
-            <button class="hd-tab" onclick="hdTab(this,'hd-sub-pane-raw-resp','hd-sub')"><?= t('happ_debug', 'tab_raw_resp') ?></button>
+            <button class="hd-tab active" type="button" data-hd-pane="hd-sub-pane-raw-req" data-hd-group="hd-sub"><?= t('happ_debug', 'tab_raw_req') ?></button>
+            <button class="hd-tab" type="button" data-hd-pane="hd-sub-pane-raw-resp" data-hd-group="hd-sub"><?= t('happ_debug', 'tab_raw_resp') ?></button>
         </div>
         <div id="hd-sub-pane-raw-req" class="hd-pane active" data-group="hd-sub">
             <div class="dbg-raw" id="hd-sub-raw-req" data-raw="<?= htmlspecialchars($data['sub_raw_request'] ?? '') ?>"></div>
@@ -177,8 +177,8 @@
         <div class="hd-not-found"><?= t('happ_debug', 'wl_not_found') ?></div>
         <?php else: ?>
         <div class="hd-tabs">
-            <button class="hd-tab active" onclick="hdTab(this,'hd-wl-pane-raw-req','hd-wl')"><?= t('happ_debug', 'tab_raw_req') ?></button>
-            <button class="hd-tab" onclick="hdTab(this,'hd-wl-pane-raw-resp','hd-wl')"><?= t('happ_debug', 'tab_raw_resp') ?></button>
+            <button class="hd-tab active" type="button" data-hd-pane="hd-wl-pane-raw-req" data-hd-group="hd-wl"><?= t('happ_debug', 'tab_raw_req') ?></button>
+            <button class="hd-tab" type="button" data-hd-pane="hd-wl-pane-raw-resp" data-hd-group="hd-wl"><?= t('happ_debug', 'tab_raw_resp') ?></button>
         </div>
         <div id="hd-wl-pane-raw-req" class="hd-pane active" data-group="hd-wl">
             <div class="dbg-raw" id="hd-wl-raw-req" data-raw="<?= htmlspecialchars($data['wl_raw_request']) ?>"></div>
@@ -192,7 +192,13 @@
 
 </div>
 <script src="<?= assetUrl('js/debug.js') ?>"></script>
-<script>
+<script nonce="<?= htmlspecialchars(cspNonce(), ENT_QUOTES, 'UTF-8') ?>">
+/**
+ * @brief Activates one tab pane within a single Happ debug card.
+ * @param el Tab button that initiated the switch.
+ * @param pane Identifier of the pane to activate.
+ * @param group Pane group that must be deactivated first.
+ */
 function hdTab(el, pane, group) {
     document.querySelectorAll('[data-group="' + group + '"]').forEach(function(p) { p.classList.remove('active'); });
     el.closest('.hd-card').querySelectorAll('.hd-tab').forEach(function(t) { t.classList.remove('active'); });
@@ -200,6 +206,12 @@ function hdTab(el, pane, group) {
     document.getElementById(pane).classList.add('active');
 }
 document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-hd-pane][data-hd-group]').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            hdTab(tab, tab.dataset.hdPane || '', tab.dataset.hdGroup || '');
+        });
+    });
+
     [
         ['hd-raw-req',      hlRequest],
         ['hd-raw-resp',     hlResponse],

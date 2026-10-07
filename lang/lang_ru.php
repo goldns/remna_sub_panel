@@ -82,9 +82,9 @@ return [
     ],
 
     // Installation guide
-    // Структура: clients → {client} → platforms → {platform} → steps.
-    // Какие клиенты и в каком порядке показывать — задаётся ключом install_clients в config.php.
-    // Кнопка с type='sub' получает ссылку подписки автоматически по клиенту (happ:// / incy://).
+    // Structure: clients -> {client} -> platforms -> {platform} -> steps.
+    // Client availability and order are configured through install_clients.
+    // A button with type="sub" receives the client-specific subscription scheme automatically.
     'install' => [
         'title' => '🚀 Инструкция по установке',
 

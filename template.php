@@ -1,37 +1,64 @@
 <?php
 declare(strict_types=1);
 
-// Публичный URL ассета относительно /assets/ (работает в подпапке)
+/**
+ * @brief Builds a public asset URL relative to the current application directory.
+ *
+ * @param path Relative path below the assets directory.
+ * @return Normalized application-relative asset URL, using the site root for malformed server metadata.
+ */
 function assetUrl(string $path): string
 {
-    $base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
+    $scriptName = is_string($_SERVER['SCRIPT_NAME'] ?? null) ? $_SERVER['SCRIPT_NAME'] : '/index.php';
+    $base = rtrim(dirname($scriptName), '/');
     return $base . '/assets/' . ltrim($path, '/');
 }
 
-// Загружает массив строк перевода в глобальное хранилище
+/**
+ * @brief Stores the validated translation catalog for the current request.
+ * @param strings Nested translation groups loaded from the bundled locale file.
+ */
 function initLang(array $strings): void
 {
     $GLOBALS['__lang'] = $strings;
 }
 
-// Возвращает строку перевода по группе и ключу
+/**
+ * @brief Resolves one translation string without exposing undefined-index notices.
+ * @param group Translation group name.
+ * @param key Translation key within the group.
+ * @return Configured translation or an empty string when absent.
+ */
 function t(string $group, string $key): string
 {
     return $GLOBALS['__lang'][$group][$key] ?? '';
 }
 
-// Значение html lang для тега <html>
+/**
+ * @brief Returns the configured HTML language code.
+ * @return Locale code, defaulting to ru when the catalog omits it.
+ */
 function htmlLang(): string
 {
     return $GLOBALS['__lang']['html_lang'] ?? 'ru';
 }
 
-// Возвращает группу строк целиком (например, для инструкции по установке)
+/**
+ * @brief Returns one complete translation group for structured UI sections.
+ * @param group Translation group name.
+ * @return Group array or an empty array when absent.
+ */
 function langGroup(string $group): array
 {
     return $GLOBALS['__lang'][$group] ?? [];
 }
 
+/**
+ * @brief Renders a safe HTML error page using an optional redacted debug context.
+ * @param code Public HTTP status code.
+ * @param message User-facing error message.
+ * @param debug Optional redacted diagnostic data.
+ */
 function renderErrorPage(int $code, string $message, ?array $debug = null): void
 {
     http_response_code($code);
@@ -39,49 +66,103 @@ function renderErrorPage(int $code, string $message, ?array $debug = null): void
     include TEMPLATE_DIR . '/error-page.php';
 }
 
-// Что делает: строит URL кнопки «Продлить» из шаблона и данных пользователя.
-// Что принимает на вход: шаблон URL, shortUuid, данные публичной подписки и числовой userId.
-// Что возвращает: готовый URL с подставленными плейсхолдерами.
-// Плейсхолдеры:
-//   {shortUuid}       — shortUuid из URL
-//   {userId}          — числовой ID пользователя (требует api_token)
-//   {B64:FIELDNAME}   — base64_encode поля user[fieldname] (напр. {B64:USERNAME})
+/**
+ * @brief Builds a renewal URL from an explicit case-insensitive field allowlist and URL-encoded replacements.
+ * @param template Trusted configured URL template using shortUuid, userId, or approved B64 placeholders.
+ * @param shortUuid Validated subscription identifier from the public route.
+ * @param user Normalized subscription user data from API or persistent cache.
+ * @param userId Optional positive upstream user identifier represented as a string.
+ * @return Expanded URL, or an empty string for unsupported legacy or B64 placeholders.
+ */
 function buildRenewUrl(string $template, string $shortUuid, array $user, string $userId = ''): string
 {
     if (str_contains($template, '{uuid}')) {
-        error_log('Плейсхолдер {uuid} не поддерживается Remnawave 3.x; используйте {userId}.');
+        logOperationalFailure('configuration', 'unsupported_renew_placeholder', ['placeholder' => 'uuid']);
         return '';
     }
 
     $result = str_replace(
         ['{shortUuid}', '{userId}'],
-        [$shortUuid, $userId],
+        [rawurlencode($shortUuid), rawurlencode($userId)],
         $template
     );
-    return (string) preg_replace_callback('/\{B64:([A-Za-z_]+)\}/', function ($m) use ($user) {
-        $value = $user[strtolower($m[1])] ?? '';
-        return base64_encode((string) $value);
+    $invalid = false;
+    $fieldMap = renewPlaceholderFieldMap();
+    $expanded = preg_replace_callback('/\{B64:([A-Za-z_]+)\}/i', function (array $match) use ($user, $fieldMap, &$invalid): string {
+        $field = $fieldMap[strtoupper($match[1])] ?? null;
+        if ($field === null) {
+            $invalid = true;
+            return '';
+        }
+        $value = $user[$field] ?? '';
+        if (!is_scalar($value) && $value !== null) {
+            $invalid = true;
+            return '';
+        }
+        return rawurlencode(base64_encode((string) $value));
     }, $result);
+    return $invalid || !is_string($expanded) ? '' : $expanded;
 }
 
-function renderUserPanel(array $user, ?array $debug = null, ?array $wlUser = null, ?array $hwidInfo = null, string $supportUrl = '', ?array $wlHwidInfo = null, ?array $checkerProxies = null, string $renewUrl = '', string $renewUrlTg = ''): void
+/**
+ * @brief Accepts only explicitly supported external-link schemes for browser-panel anchors.
+ *
+ * @param url Candidate URL from trusted configuration or an upstream response header.
+ * @return The unchanged URL for http, https, or tg schemes; otherwise an empty string.
+ */
+function sanitizeExternalUrl(string $url): string
+{
+    $url = trim($url);
+    if ($url === '' || preg_match('/[\x00-\x1F\x7F]/', $url)) return '';
+
+    $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+    return in_array($scheme, ['http', 'https', 'tg'], true) ? $url : '';
+}
+
+/**
+ * @brief Prepares escaped subscription data and renders the browser-facing user panel.
+ *
+ * Unknown status values are escaped, external links are restricted to approved schemes, and the HWID delete
+ * controls receive a short-lived token only when CSRF signing is configured.
+ *
+ * @param user Main subscription user data returned by the info endpoint.
+ * @param debug Optional already-redacted diagnostic data for authorized debug clients.
+ * @param wlUser Optional active WL user data for the secondary status card.
+ * @param hwidInfo Optional main-account HWID summary and device list.
+ * @param supportUrl Optional support URL.
+ * @param wlHwidInfo Optional WL-account HWID summary and device list.
+ * @param checkerProxies Optional normalized proxy-health data.
+ * @param renewUrl Optional renewal URL for the primary button.
+ * @param renewUrlTg Optional Telegram renewal URL.
+ * @param csrfToken Signed HWID deletion token, or an empty string when deletion must remain disabled.
+ * @param hwidDeleteQuota Optional rolling deletion quota for the main API username.
+ * @param wlHwidDeleteQuota Optional rolling deletion quota for the WL API username.
+ */
+function renderUserPanel(array $user, ?array $debug = null, ?array $wlUser = null, ?array $hwidInfo = null, string $supportUrl = '', ?array $wlHwidInfo = null, ?array $checkerProxies = null, string $renewUrl = '', string $renewUrlTg = '', string $csrfToken = '', ?array $hwidDeleteQuota = null, ?array $wlHwidDeleteQuota = null): void
 {
     header('Content-Type: text/html; charset=utf-8');
 
-    $username   = htmlspecialchars($user['username'] ?? '—');
-    $status     = $user['userStatus'] ?? 'UNKNOWN';
-    $daysLeft   = (int) ($user['daysLeft'] ?? 0);
-    $expiresAt  = $user['expiresAt'] ?? null;
-    $traffic    = htmlspecialchars($user['trafficUsed'] ?? '—');
-    $limitBytes = (float) ($user['trafficLimitBytes'] ?? 0);
-    $limit      = $limitBytes == 0 ? t('panel', 'unlimited') : htmlspecialchars($user['trafficLimit'] ?? '—');
+    $usernameValue = is_string($user['username'] ?? null) ? $user['username'] : '—';
+    $username   = htmlspecialchars($usernameValue, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $status     = is_string($user['userStatus'] ?? null) ? strtoupper($user['userStatus']) : 'UNKNOWN';
+    $daysLeftValue = $user['daysLeft'] ?? 0;
+    $daysLeft   = is_numeric($daysLeftValue) ? (int) $daysLeftValue : 0;
+    $expiresAt  = is_string($user['expiresAt'] ?? null) ? $user['expiresAt'] : null;
+    $trafficValue = is_string($user['trafficUsed'] ?? null) ? $user['trafficUsed'] : '—';
+    $traffic    = htmlspecialchars($trafficValue, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $limitBytesValue = $user['trafficLimitBytes'] ?? 0;
+    $limitBytes = is_numeric($limitBytesValue) ? (float) $limitBytesValue : 0.0;
+    $limitValue = is_string($user['trafficLimit'] ?? null) ? $user['trafficLimit'] : '—';
+    $limit      = $limitBytes == 0
+        ? t('panel', 'unlimited')
+        : htmlspecialchars($limitValue, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
     [$statusText, $statusCss] = match($status) {
         'ACTIVE'   => [t('status', 'ACTIVE'),   'status-active'],
         'DISABLED' => [t('status', 'DISABLED'), 'status-disabled'],
         'LIMITED'  => [t('status', 'LIMITED'),  'status-limited'],
         'EXPIRED'  => [t('status', 'EXPIRED'),  'status-expired'],
-        default    => [$status,                 'status-unknown'],
+        default    => [htmlspecialchars($status, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), 'status-unknown'],
     };
 
     $expireStr = '—';
@@ -96,42 +177,66 @@ function renderUserPanel(array $user, ?array $debug = null, ?array $wlUser = nul
 
     $wl = null;
     if ($wlUser !== null) {
-        $wlStatus = $wlUser['userStatus'] ?? 'UNKNOWN';
+        $wlStatus = is_string($wlUser['userStatus'] ?? null) ? strtoupper($wlUser['userStatus']) : 'UNKNOWN';
         [$wlStatusText, $wlStatusCss] = match($wlStatus) {
             'ACTIVE'   => [t('status', 'ACTIVE'),   'status-active'],
             'DISABLED' => [t('status', 'DISABLED'), 'status-disabled'],
             'LIMITED'  => [t('status', 'LIMITED'),  'status-limited'],
             'EXPIRED'  => [t('status', 'EXPIRED'),  'status-expired'],
-            default    => [$wlStatus,               'status-unknown'],
+            default    => [htmlspecialchars($wlStatus, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), 'status-unknown'],
         };
-        $wlUsedBytes  = (float) ($wlUser['trafficUsedBytes']  ?? 0);
-        $wlLimitBytes = (float) ($wlUser['trafficLimitBytes'] ?? 0);
+        $wlUsedValue  = $wlUser['trafficUsedBytes'] ?? 0;
+        $wlLimitValue = $wlUser['trafficLimitBytes'] ?? 0;
+        $wlUsedBytes  = is_numeric($wlUsedValue) ? (float) $wlUsedValue : 0.0;
+        $wlLimitBytes = is_numeric($wlLimitValue) ? (float) $wlLimitValue : 0.0;
         $wlRemaining  = $wlLimitBytes > 0
             ? formatBytes((int) max(0, $wlLimitBytes - $wlUsedBytes))
             : t('panel', 'unlimited');
         $wl = [
             'statusText'  => $wlStatusText,
             'statusCss'   => $wlStatusCss,
-            'trafficUsed' => htmlspecialchars($wlUser['trafficUsed'] ?? '—'),
+            'trafficUsed' => htmlspecialchars(
+                is_string($wlUser['trafficUsed'] ?? null) ? $wlUser['trafficUsed'] : '—',
+                ENT_QUOTES | ENT_SUBSTITUTE,
+                'UTF-8'
+            ),
             'remaining'   => $wlRemaining,
         ];
     }
 
+    $supportUrl = sanitizeExternalUrl($supportUrl);
+    $renewUrl   = sanitizeExternalUrl($renewUrl);
+    $renewUrlTg = sanitizeExternalUrl($renewUrlTg);
+
     include TEMPLATE_DIR . '/user-panel.php';
 }
 
+/**
+ * @brief Renders the authorized Happ diagnostic view from redacted data.
+ * @param data Redacted diagnostic model prepared by the shared Happ flow.
+ */
 function renderHappDebug(array $data): void
 {
     header('Content-Type: text/html; charset=utf-8');
     include TEMPLATE_DIR . '/happ-debug.php';
 }
 
+/**
+ * @brief Resolves a localized load-balancing strategy label.
+ * @param strategy Strategy key returned by the checker.
+ * @return Localized label or an escaped original key.
+ */
 function strategyLabel(string $strategy): string
 {
     $label = t('strategy', $strategy);
     return $label !== '' ? $label : htmlspecialchars($strategy);
 }
 
+/**
+ * @brief Formats a past date as a concise Russian relative interval.
+ * @param datetime Date-time value accepted by strtotime().
+ * @return Relative interval or an em dash for an invalid value.
+ */
 function timeAgo(string $datetime): string
 {
     $ts   = strtotime($datetime);
@@ -147,6 +252,14 @@ function timeAgo(string $datetime): string
     return $y . ' ' . plural($y, 'год', 'года', 'лет') . ' назад';
 }
 
+/**
+ * @brief Selects the correct Russian plural form for an integer.
+ * @param n Value whose grammatical form is required.
+ * @param one Singular form.
+ * @param few Paucal form.
+ * @param many Plural form.
+ * @return Selected word form.
+ */
 function plural(int $n, string $one, string $few, string $many): string
 {
     $n  = abs($n) % 100;
@@ -157,6 +270,11 @@ function plural(int $n, string $one, string $few, string $many): string
     return $many;
 }
 
+/**
+ * @brief Returns a built-in platform icon without external asset requests.
+ * @param platform Lowercase platform description.
+ * @return Trusted inline SVG markup for the detected or generic device type.
+ */
 function hwidPlatformIcon(string $platform): string
 {
     return match(true) {
@@ -175,11 +293,27 @@ function hwidPlatformIcon(string $platform): string
     };
 }
 
-// Формирует строку устройства одной строкой: «<b>Платформа</b> / <b>ПРИЛОЖЕНИЕ</b> / версия / версия_ОС».
-// Платформа берётся из поля platform, приложение и версия парсятся из userAgent
-// (Happ/2.7.0/Windows/... → app=Happ, ver=2.7.0; v2raytun/windows → app=v2raytun, без версии).
-// $osVersion добавляется в конец обычным шрифтом. Жирным — только платформа и имя приложения.
-// Возвращает безопасный HTML (части экранированы, теги <b> добавляются здесь). Пусто = нечего показать.
+/**
+ * @brief Converts an ISO 3166-1 alpha-2 country code to its Unicode flag sequence.
+ * @param code Two ASCII letters; case is ignored.
+ * @return Flag emoji for a valid code, or an empty string for invalid input.
+ */
+function countryCodeFlagEmoji(string $code): string
+{
+    $code = strtoupper(trim($code));
+    if (preg_match('/^[A-Z]{2}$/D', $code) !== 1) return '';
+
+    return mb_chr(0x1F1E6 + ord($code[0]) - 65, 'UTF-8')
+        . mb_chr(0x1F1E6 + ord($code[1]) - 65, 'UTF-8');
+}
+
+/**
+ * @brief Formats confirmed device metadata as escaped HTML with emphasized platform and application names.
+ * @param userAgent Device user agent returned by the upstream API.
+ * @param platform Device platform returned by the upstream API.
+ * @param osVersion Optional operating-system version returned by the upstream API.
+ * @return Safe HTML fragments separated by slashes, or an empty string when no metadata exists.
+ */
 function formatDeviceAgent(string $userAgent, string $platform, string $osVersion = ''): string
 {
     $ua    = trim($userAgent);
@@ -188,7 +322,7 @@ function formatDeviceAgent(string $userAgent, string $platform, string $osVersio
         : [];
 
     $app = $parts[0] ?? '';
-    // Версия — вторая часть, только если похожа на версию (начинается с цифры).
+    // Treat the second user-agent segment as a version only when it starts with a digit.
     $ver = (isset($parts[1]) && preg_match('/^[0-9][0-9.]*$/', $parts[1])) ? $parts[1] : '';
 
     $segs = [];
@@ -200,6 +334,11 @@ function formatDeviceAgent(string $userAgent, string $platform, string $osVersio
     return implode(' / ', $segs);
 }
 
+/**
+ * @brief Formats a non-negative byte count using binary units.
+ * @param bytes Byte count; non-positive values are displayed as zero.
+ * @return Human-readable value from B through TB.
+ */
 function formatBytes(int $bytes): string
 {
     if ($bytes <= 0) return '0 B';
@@ -208,36 +347,40 @@ function formatBytes(int $bytes): string
     return round($bytes / (1024 ** $i), 2) . ' ' . $units[$i];
 }
 
-// Шифрует ссылку подписки через crypto.happ.su; при ошибке возвращает plain happ://add/{url}
+/**
+ * @brief Requests an encrypted Happ import link with a bounded response and a deterministic plain-link fallback.
+ * @param url Subscription URL to encrypt for the installation button.
+ * @return Valid happ scheme returned by the service, or the plain happ import fallback.
+ */
 function encryptSubLink(string $url): string
 {
     $fallback = 'happ://add/' . $url;
     $apiUrl   = 'https://crypto.happ.su/api-v2.php';
-
-    $ch = curl_init($apiUrl);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => json_encode(['url' => $url]),
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-        CURLOPT_TIMEOUT        => 5,
-        CURLOPT_SSL_VERIFYPEER => true,
-    ]);
-    $t0   = microtime(true);
-    $body = curl_exec($ch);
-    $ms   = (int) round((microtime(true) - $t0) * 1000);
-    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err  = curl_error($ch);
-    curl_close($ch);
+    $payload = json_encode(['url' => $url], JSON_UNESCAPED_SLASHES);
+    $response = $payload === false
+        ? ['code' => 0, 'body' => '', 'ms' => 0, 'error' => 'JSON encoding failed']
+        : apiPost(
+            $apiUrl,
+            $payload,
+            ['Content-Type: application/json'],
+            5,
+            responseBodyLimit('external'),
+            'encrypt_subscription_link'
+        );
+    $body = is_string($response['body'] ?? null) ? $response['body'] : '';
+    $code = is_numeric($response['code'] ?? null) ? (int) $response['code'] : 0;
+    $ms   = is_numeric($response['ms'] ?? null) ? (int) $response['ms'] : 0;
+    $err  = is_string($response['error'] ?? null) ? $response['error'] : '';
 
     $link         = $fallback;
     $usedFallback = true;
 
-    if ($code === 200 && $body) {
+    if ($code === 200 && $body !== '') {
         $json      = json_decode($body, true);
-        $candidate = is_array($json)
+        $candidateValue = is_array($json)
             ? ($json['encrypted_link'] ?? $json['url'] ?? $json['link'] ?? $json['encrypted'] ?? '')
             : trim((string) $body);
+        $candidate = is_string($candidateValue) ? $candidateValue : '';
 
         if (str_starts_with($candidate, 'happ://')) {
             $link         = $candidate;
@@ -251,7 +394,7 @@ function encryptSubLink(string $url): string
         'code'         => $code,
         'ms'           => $ms,
         'curl_error'   => $err,
-        'raw_body'     => (string) $body,
+        'raw_body'     => $body,
         'result'       => $link,
         'used_fallback'=> $usedFallback,
     ];

@@ -2,8 +2,7 @@
 $guide      = langGroup('install');
 $clientsAll = $guide['clients'] ?? [];
 
-// Список и порядок клиентов задаётся в config.php (ключ install_clients → константа INSTALL_CLIENTS).
-// Первый в списке — по умолчанию. Если доступен один клиент — переключатель скрыт.
+// Client availability and order come from INSTALL_CLIENTS; the first entry is selected by default.
 $allowed = (defined('INSTALL_CLIENTS') && !empty(INSTALL_CLIENTS)) ? INSTALL_CLIENTS : array_keys($clientsAll);
 $clients = [];
 foreach ($allowed as $cid) {
@@ -12,8 +11,7 @@ foreach ($allowed as $cid) {
 }
 if (empty($clients)) $clients = $clientsAll;
 
-// Ссылка «Добавить подписку» зависит от клиента.
-// happ — зашифрованный happ:// (или fallback), incy — incy://import/{plain url}.
+// Each supported client receives its own subscription-import scheme.
 $happSubLink = $GLOBALS['__sub_link'] ?? ('happ://add/' . currentUrl());
 $subLinkFor  = [
     'happ' => $happSubLink,
@@ -41,7 +39,7 @@ $iconColor = [
 ?>
 
 <div class="card guide-card">
-    <button class="guide-toggle" onclick="guideToggle()" aria-expanded="false" aria-controls="guide-body">
+    <button class="guide-toggle" id="install-guide-toggle" aria-expanded="false" aria-controls="guide-body">
         <span class="guide-title"><?= htmlspecialchars($guide['title'] ?? '') ?></span>
         <svg class="guide-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6l6 -6"/></svg>
     </button>
@@ -52,8 +50,7 @@ $iconColor = [
         <div class="guide-client-tabs" role="tablist">
             <?php foreach ($clients as $cid => $client): ?>
             <button type="button" class="guide-client-tab<?= $cid === $firstClient ? ' active' : '' ?>"
-                    data-client="<?= htmlspecialchars($cid) ?>"
-                    onclick="guideClientSwitch('<?= htmlspecialchars($cid) ?>')">
+                    data-client="<?= htmlspecialchars($cid) ?>">
                 <?= htmlspecialchars($client['label'] ?? $cid) ?>
             </button>
             <?php endforeach ?>
@@ -63,7 +60,7 @@ $iconColor = [
         <?php foreach ($clients as $cid => $client): ?>
         <div class="guide-client<?= $cid === $firstClient ? ' active' : '' ?>" id="gc-<?= htmlspecialchars($cid) ?>">
             <div class="guide-platform-row">
-                <select class="guide-select" onchange="guidePlatformSwitch('<?= htmlspecialchars($cid) ?>', this.value)">
+                <select class="guide-select" data-client="<?= htmlspecialchars($cid) ?>">
                     <?php foreach (($client['platforms'] ?? []) as $pid => $platform): ?>
                     <option value="<?= htmlspecialchars($pid) ?>"><?= htmlspecialchars($platform['label']) ?></option>
                     <?php endforeach ?>
@@ -106,16 +103,24 @@ $iconColor = [
     </div></div>
 </div>
 
-<script>
+<script nonce="<?= htmlspecialchars(cspNonce(), ENT_QUOTES, 'UTF-8') ?>">
 (function () {
+    /**
+     * @brief Toggles the installation guide without relying on an inline event handler.
+     */
     function guideToggle() {
-        var btn  = document.querySelector('.guide-toggle');
+        var btn  = document.getElementById('install-guide-toggle');
         var body = document.getElementById('guide-body');
+        if (!btn || !body) return;
         var open = btn.getAttribute('aria-expanded') === 'true';
         btn.setAttribute('aria-expanded', open ? 'false' : 'true');
         body.classList.toggle('open', !open);
     }
 
+    /**
+     * @brief Selects one configured client guide and synchronizes its tab state.
+     * @param cid Configured client identifier present in the rendered guide.
+     */
     function guideClientSwitch(cid) {
         document.querySelectorAll('.guide-client').forEach(function (el) {
             el.classList.toggle('active', el.id === 'gc-' + cid);
@@ -125,6 +130,11 @@ $iconColor = [
         });
     }
 
+    /**
+     * @brief Selects one rendered platform section for the requested client.
+     * @param cid Configured client identifier.
+     * @param pid Platform identifier rendered under that client.
+     */
     function guidePlatformSwitch(cid, pid) {
         var scope = document.getElementById('gc-' + cid);
         if (!scope) return;
@@ -137,10 +147,10 @@ $iconColor = [
         if (sel) sel.value = pid;
     }
 
-    window.guideToggle        = guideToggle;
-    window.guideClientSwitch  = guideClientSwitch;
-    window.guidePlatformSwitch = guidePlatformSwitch;
-
+    /**
+     * @brief Infers a supported platform identifier from the browser user agent.
+     * @return Supported platform key, defaulting to windows when no match is known.
+     */
     function detectPlatform() {
         var ua = navigator.userAgent;
         if (/Android/i.test(ua))              return 'android';
@@ -152,10 +162,23 @@ $iconColor = [
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        var toggle = document.getElementById('install-guide-toggle');
+        if (toggle) toggle.addEventListener('click', guideToggle);
+
+        document.querySelectorAll('.guide-client-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () { guideClientSwitch(tab.dataset.client || ''); });
+        });
+
+        document.querySelectorAll('.guide-select').forEach(function (select) {
+            select.addEventListener('change', function () {
+                guidePlatformSwitch(select.dataset.client || '', select.value);
+            });
+        });
+
         var detected = detectPlatform();
         document.querySelectorAll('.guide-client').forEach(function (scope) {
             var cid = scope.id.replace(/^gc-/, '');
-            // Если у клиента есть определённая платформа — выбираем её, иначе первую из списка.
+            // Prefer the detected platform and fall back to the first configured option.
             var pid = document.getElementById('gp-' + cid + '-' + detected) ? detected : null;
             if (!pid) {
                 var firstOpt = scope.querySelector('.guide-select option');

@@ -6,9 +6,6 @@
     <meta name="robots" content="noindex,nofollow">
     <link rel="icon" type="image/svg+xml" href="<?= assetUrl('favicon.svg') ?>">
     <title><?= PROJECT_NAME !== '' ? htmlspecialchars(PROJECT_NAME) . ' · ' : '' ?><?= $username ?></title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
     <link rel="stylesheet" href="<?= assetUrl('css/panel.css') ?>">
 </head>
 <body>
@@ -98,8 +95,22 @@
     <?php include __DIR__ . '/install-guide.php'; ?>
 
     <?php if ($hwidInfo !== null): ?>
+    <?php
+    $quotaLabel = static function (?array $quota): string {
+        if ($quota === null) return 'Лимит удалений временно недоступен';
+        if (!empty($quota['unlimited'])) return 'Удаления без ограничений (администратор)';
+        $remaining = is_array($quota['remaining'] ?? null) ? $quota['remaining'] : [];
+        $value = static fn(string $period): string => array_key_exists($period, $remaining) && $remaining[$period] !== null
+            ? (string) max(0, (int) $remaining[$period])
+            : '∞';
+        return 'Осталось удалений: 24 ч — ' . $value('day')
+            . ', 7 дней — ' . $value('week') . ', 30 дней — ' . $value('month');
+    };
+    $mainDeleteDisabled = $hwidDeleteQuota === null || empty($hwidDeleteQuota['allowed']);
+    $wlDeleteDisabled   = $wlHwidDeleteQuota === null || empty($wlHwidDeleteQuota['allowed']);
+    ?>
     <div class="card guide-card">
-        <button class="guide-toggle" onclick="hwidToggle()" aria-expanded="false" type="button">
+        <button class="guide-toggle" id="hwid-toggle" aria-expanded="false" type="button">
             <span class="guide-title"><?= t('hwid', 'title') ?></span>
             <svg class="guide-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6"/></svg>
         </button>
@@ -115,6 +126,7 @@
                         <div class="value"><?= $hwidInfo['limit'] !== null ? $hwidInfo['limit'] : t('hwid', 'unlimited') ?></div>
                     </div>
                 </div>
+                <div class="hwid-delete-quota" data-quota-role="main"><?= htmlspecialchars($quotaLabel($hwidDeleteQuota)) ?></div>
                 <?php if (!empty($hwidInfo['devices'])): ?>
                 <div class="hwid-devices">
                     <?php
@@ -141,8 +153,8 @@
                             <?php if ($agentLine !== ''): ?><div class="hwid-device-meta hwid-device-agent"><?= $agentLine ?></div><?php endif ?>
                             <div class="hwid-device-meta hwid-device-seen"><?= htmlspecialchars($metaBottom) ?></div>
                         </div>
-                        <?php if (ALLOW_DELETE_HWID || DEBUG_MODE): ?>
-                        <button class="hwid-delete-btn" type="button" title="Удалить устройство" onclick="hwidDelete(this)">
+                        <?php if ((ALLOW_DELETE_HWID || DEBUG_MODE) && $csrfToken !== ''): ?>
+                        <button class="hwid-delete-btn" type="button" title="<?= $mainDeleteDisabled ? 'Лимит удалений недоступен или исчерпан' : 'Удалить устройство' ?>" data-hwid-delete<?= $mainDeleteDisabled ? ' disabled' : '' ?>>
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
                         </button>
                         <?php endif ?>
@@ -150,7 +162,7 @@
                     <?php endforeach ?>
                 </div>
                 <?php endif ?>
-                <?php if (!empty($wlHwidInfo['devices'])): ?>
+                <?php if ($wlHwidInfo !== null): ?>
                 <div class="hwid-wl-separator">
                     <span><?= t('wl', 'title') ?></span>
                 </div>
@@ -164,6 +176,8 @@
                         <div class="value"><?= $wlHwidInfo['limit'] !== null ? $wlHwidInfo['limit'] : t('hwid', 'unlimited') ?></div>
                     </div>
                 </div>
+                <div class="hwid-delete-quota" data-quota-role="wl"><?= htmlspecialchars($quotaLabel($wlHwidDeleteQuota)) ?></div>
+                <?php if (!empty($wlHwidInfo['devices'])): ?>
                 <div class="hwid-devices">
                     <?php
                     $wlSortedDevices = $wlHwidInfo['devices'];
@@ -189,14 +203,15 @@
                             <?php if ($agentLine !== ''): ?><div class="hwid-device-meta hwid-device-agent"><?= $agentLine ?></div><?php endif ?>
                             <div class="hwid-device-meta hwid-device-seen"><?= htmlspecialchars($metaBottom) ?></div>
                         </div>
-                        <?php if (ALLOW_DELETE_HWID || DEBUG_MODE): ?>
-                        <button class="hwid-delete-btn" type="button" title="Удалить устройство" onclick="hwidDelete(this)">
+                        <?php if ((ALLOW_DELETE_HWID || DEBUG_MODE) && $csrfToken !== ''): ?>
+                        <button class="hwid-delete-btn" type="button" title="<?= $wlDeleteDisabled ? 'Лимит удалений недоступен или исчерпан' : 'Удалить устройство' ?>" data-hwid-delete<?= $wlDeleteDisabled ? ' disabled' : '' ?>>
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
                         </button>
                         <?php endif ?>
                     </div>
                     <?php endforeach ?>
                 </div>
+                <?php endif ?>
                 <?php endif ?>
             </div>
         </div>
@@ -205,7 +220,7 @@
 
     <?php if ($checkerProxies !== null): ?>
     <div class="card guide-card">
-        <button class="guide-toggle" onclick="serversToggle()" aria-expanded="false" type="button">
+        <button class="guide-toggle" id="servers-toggle" aria-expanded="false" type="button">
             <span class="guide-title"><?= t('servers', 'title') ?></span>
             <svg class="guide-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6"/></svg>
         </button>
@@ -229,8 +244,8 @@
                     ?>
                     <div class="server-row">
                         <span class="server-dot <?= $online ? 'online' : 'offline' ?>"></span>
-                        <?php if ($flagCode): ?>
-                        <img class="server-flag" src="https://flagcdn.com/16x12/<?= htmlspecialchars($flagCode) ?>.png" srcset="https://flagcdn.com/32x24/<?= htmlspecialchars($flagCode) ?>.png 2x" width="16" height="12" alt="<?= htmlspecialchars(strtoupper($flagCode)) ?>">
+                        <?php if ($flagCode && ($flagEmoji = countryCodeFlagEmoji((string) $flagCode)) !== ''): ?>
+                        <span class="server-flag" aria-label="<?= htmlspecialchars(strtoupper((string) $flagCode)) ?>"><?= htmlspecialchars($flagEmoji) ?></span>
                         <?php endif ?>
                         <div class="server-info">
                             <span class="server-name"><?= htmlspecialchars($proxy['name'] ?? '') ?></span>
@@ -277,40 +292,107 @@
 <script src="<?= assetUrl('js/qr-modal.js') ?>" defer></script>
 <?php endif ?>
 <?php if ($debug !== null) include __DIR__ . '/debug-panel.php'; ?>
-<script>
+<script nonce="<?= htmlspecialchars(cspNonce(), ENT_QUOTES, 'UTF-8') ?>">
+var deleteHwidCsrfToken = <?= json_encode($csrfToken, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+var hwidDeletionQuotas = {
+    main: <?= json_encode($hwidDeleteQuota, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+    wl: <?= json_encode($wlHwidDeleteQuota, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>
+};
+
+/**
+ * @brief Toggles the checker server-status card.
+ */
 function serversToggle() {
-    var btn  = document.querySelector('[onclick="serversToggle()"]');
+    var btn  = document.getElementById('servers-toggle');
     var body = document.getElementById('servers-body');
+    if (!btn || !body) return;
     var open = btn.getAttribute('aria-expanded') === 'true';
     btn.setAttribute('aria-expanded', open ? 'false' : 'true');
     body.classList.toggle('open', !open);
 }
+/**
+ * @brief Toggles the HWID device card.
+ */
 function hwidToggle() {
-    var btn  = document.querySelector('[onclick="hwidToggle()"]');
+    var btn  = document.getElementById('hwid-toggle');
     var body = document.getElementById('hwid-body');
+    if (!btn || !body) return;
     var open = btn.getAttribute('aria-expanded') === 'true';
     btn.setAttribute('aria-expanded', open ? 'false' : 'true');
     body.classList.toggle('open', !open);
 }
+
+/**
+ * @brief Formats one server-provided rolling quota for warnings and the visible quota label.
+ * @param quota Quota object returned by the deletion repository, or null when storage is unavailable.
+ * @return Human-readable Russian quota summary without exposing storage details.
+ */
+function formatDeletionQuota(quota) {
+    if (!quota) return 'Лимит удалений временно недоступен';
+    if (quota.unlimited) return 'Удаления без ограничений (администратор)';
+    var remaining = quota.remaining || {};
+    var value = function(period) {
+        return remaining[period] === null || typeof remaining[period] === 'undefined'
+            ? '∞'
+            : Math.max(0, parseInt(remaining[period], 10) || 0);
+    };
+    return 'Осталось удалений: 24 ч — ' + value('day')
+        + ', 7 дней — ' + value('week') + ', 30 дней — ' + value('month');
+}
+
+/**
+ * @brief Replaces one account quota after a server response and synchronizes its delete controls.
+ * @param role Account role, either "main" or "wl".
+ * @param quota Latest server-provided quota object, or null when quota state is unavailable.
+ */
+function updateDeletionQuota(role, quota) {
+    hwidDeletionQuotas[role] = quota || null;
+    var label = document.querySelector('[data-quota-role="' + role + '"]');
+    if (label) label.textContent = formatDeletionQuota(quota);
+    var selector = role === 'wl'
+        ? '.hwid-device[data-wl="1"] .hwid-delete-btn'
+        : '.hwid-device:not([data-wl="1"]) .hwid-delete-btn';
+    var allowed = !!(quota && quota.allowed);
+    document.querySelectorAll(selector).forEach(function(button) {
+        button.disabled = !allowed;
+        button.title = allowed ? 'Удалить устройство' : 'Лимит удалений недоступен или исчерпан';
+    });
+}
+
+/**
+ * @brief Warns about the target and remaining quota, then submits only the HWID, role, and CSRF token.
+ * @param btn Delete button located inside a device card with a validated data-hwid attribute.
+ */
 function hwidDelete(btn) {
     var card = btn.closest('[data-hwid]');
     var hwid = card ? card.getAttribute('data-hwid') : '';
     if (!hwid) return;
+    var isWl = card.getAttribute('data-wl') === '1';
+    var role = isWl ? 'wl' : 'main';
+    var nameNode = card.querySelector('.hwid-device-name');
+    var deviceName = nameNode ? nameNode.textContent.trim() : 'устройство';
+    var warning = 'Удалить «' + deviceName + '» (HWID: ' + hwid + ')?\n'
+        + formatDeletionQuota(hwidDeletionQuotas[role]) + '\nДействие нельзя отменить.';
+    if (!window.confirm(warning)) return;
     btn.disabled = true;
     var fd = new FormData();
     fd.append('hwid', hwid);
-    var isWl = card.getAttribute('data-wl') === '1';
+    fd.append('csrf_token', deleteHwidCsrfToken);
     if (isWl) fd.append('wl', '1');
     var url = window.location.pathname + (window.location.search ? window.location.search + '&action=delete_hwid' : '?action=delete_hwid');
     fetch(url, { method: 'POST', body: fd })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-            if (d.ok) {
+        .then(function(r) {
+            return r.json().then(function(data) { return { httpOk: r.ok, data: data }; });
+        })
+        .then(function(result) {
+            var d = result.data;
+            if (Object.prototype.hasOwnProperty.call(d, 'quota')) updateDeletionQuota(role, d.quota);
+            if (result.httpOk && d.ok) {
                 card.style.transition = 'opacity .25s';
                 card.style.opacity = '0';
                 setTimeout(function() {
                     card.remove();
-                    // Обновляем счетчик HWID
+                    // Update the visible HWID counter only after server confirmation.
                     var counterSelector = isWl ? '.hwid-wl-summary-grid .hwid-item-count .value' : '.hwid-summary-grid:not(.hwid-wl-summary-grid) .hwid-item-count .value';
                     var counter = document.querySelector(counterSelector);
                     if (counter) {
@@ -318,13 +400,26 @@ function hwidDelete(btn) {
                         counter.textContent = Math.max(0, count - 1);
                     }
                 }, 260);
+                if (d.warning) alert(d.warning);
             } else {
-                btn.disabled = false;
+                if (d.quota && d.quota.allowed) btn.disabled = false;
                 alert('Ошибка: ' + (d.error || 'неизвестно'));
             }
         })
-        .catch(function() { btn.disabled = false; alert('Ошибка сети'); });
+        .catch(function() { alert('Ошибка сети. Обновите страницу перед повторной попыткой.'); });
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    var serversButton = document.getElementById('servers-toggle');
+    if (serversButton) serversButton.addEventListener('click', serversToggle);
+
+    var hwidButton = document.getElementById('hwid-toggle');
+    if (hwidButton) hwidButton.addEventListener('click', hwidToggle);
+
+    document.querySelectorAll('[data-hwid-delete]').forEach(function (button) {
+        button.addEventListener('click', function () { hwidDelete(button); });
+    });
+});
 </script>
 </body>
 </html>

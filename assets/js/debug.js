@@ -1,3 +1,6 @@
+/**
+ * @brief Toggles the browser debug panel and updates the button label.
+ */
 function toggleDbg() {
     var panel  = document.getElementById('dbg-panel');
     var btn    = document.getElementById('dbg-toggle');
@@ -5,6 +8,11 @@ function toggleDbg() {
     btn.textContent = isOpen ? '✕ Debug' : '🛠 Debug';
 }
 
+/**
+ * @brief Activates one browser debug pane.
+ * @param el Tab button that initiated the switch.
+ * @param pane Identifier of the pane to activate.
+ */
 function dbgTab(el, pane) {
     document.querySelectorAll('.dbg-tab').forEach(function(t) { t.classList.remove('active'); });
     document.querySelectorAll('.dbg-pane').forEach(function(p) { p.classList.remove('active'); });
@@ -12,7 +20,11 @@ function dbgTab(el, pane) {
     document.getElementById(pane).classList.add('active');
 }
 
-/* Syntax highlight: HTTP request block */
+/**
+ * @brief Escapes and highlights a raw HTTP request for display.
+ * @param text Untrusted raw request text.
+ * @return Safe HTML containing syntax-highlight spans.
+ */
 function hlRequest(text) {
     var lines = text.split('\n');
     return lines.map(function(line, i) {
@@ -26,7 +38,11 @@ function hlRequest(text) {
     }).join('\n');
 }
 
-/* Syntax highlight: HTTP response block */
+/**
+ * @brief Escapes and highlights a raw HTTP response for display.
+ * @param text Untrusted raw response text.
+ * @return Safe HTML containing syntax-highlight spans.
+ */
 function hlResponse(text) {
     var parts = text.split('\n\n');
     var headerBlock = parts[0] || '';
@@ -49,6 +65,11 @@ function hlResponse(text) {
     return highlighted;
 }
 
+/**
+ * @brief Escapes and highlights one HTTP header line.
+ * @param line Untrusted header line.
+ * @return Safe HTML for the header line.
+ */
 function hlHeader(line) {
     return line.replace(/^([^:]+)(:\s*)(.*)/, function(_, k, sep, v) {
         return '<span class="hl-hkey">' + esc(k) + '</span>' + esc(sep) +
@@ -56,6 +77,11 @@ function hlHeader(line) {
     });
 }
 
+/**
+ * @brief Formats JSON when valid and otherwise escapes the original text.
+ * @param text Untrusted response body.
+ * @return Safe highlighted HTML.
+ */
 function hlJson(text) {
     try {
         var pretty = JSON.stringify(JSON.parse(text), null, 2);
@@ -75,6 +101,11 @@ function hlJson(text) {
     }
 }
 
+/**
+ * @brief Escapes text before inserting it into generated debug HTML.
+ * @param s Arbitrary value to stringify and escape.
+ * @return HTML-safe string.
+ */
 function esc(s) {
     return String(s)
         .replace(/&/g, '&amp;')
@@ -83,6 +114,13 @@ function esc(s) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.getElementById('dbg-toggle');
+    if (toggle) toggle.addEventListener('click', toggleDbg);
+
+    document.querySelectorAll('[data-debug-pane]').forEach(function(tab) {
+        tab.addEventListener('click', function() { dbgTab(tab, tab.dataset.debugPane || ''); });
+    });
+
     [
         ['dbg-raw-req',       hlRequest],
         ['dbg-raw-req-wl',    hlRequest],

@@ -1,12 +1,21 @@
 Options -Indexes
 
+<IfModule mod_headers.c>
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+    Header always set Pragma "no-cache"
+    Header always set Referrer-Policy "no-referrer"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+</IfModule>
+
 # Block all dot-files and dot-directories (.git, .env, .htaccess, etc.)
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
 
 # Block direct access to config and internal files
-<FilesMatch "^(config\.php|conf\.php|template\.php|functions\.php|happ\.php|browser\.php|.*\.(cache|conf|example))$">
+<FilesMatch "(?i)^(config\.php|conf\.php|template\.php|functions\.php|storage\.php|happ\.php|browser\.php|.*\.(cache|conf|example|sqlite|txt|json|md))$">
     Require all denied
 </FilesMatch>
 
@@ -19,6 +28,7 @@ Options -Indexes
     # Block direct access to internal directories and cache
     RewriteRule ^templates(/.*)?$ - [F,L]
     RewriteRule ^cache(/.*)?$ - [F,L]
+    RewriteRule ^data(/.*)?$ - [F,L]
 
     # Route /{shortUuid} → index.php?id={shortUuid}
     # Works in root or any subdirectory — always takes the last path segment

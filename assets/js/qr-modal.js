@@ -18,6 +18,9 @@
 
     var EXP = new Array(512);
     var LOG = new Array(256);
+    /**
+     * @brief Initializes exponent and logarithm tables for QR Reed-Solomon arithmetic.
+     */
     (function initGaloisField() {
         var x = 1;
         for (var i = 0; i < 255; i++) {
@@ -29,11 +32,22 @@
         for (var j = 255; j < EXP.length; j++) EXP[j] = EXP[j - 255];
     })();
 
+    /**
+     * @brief Multiplies two bytes in the QR Galois field.
+     * @param x First field element.
+     * @param y Second field element.
+     * @return Product field element.
+     */
     function gfMultiply(x, y) {
         if (x === 0 || y === 0) return 0;
         return EXP[LOG[x] + LOG[y]];
     }
 
+    /**
+     * @brief Builds a Reed-Solomon generator polynomial.
+     * @param degree Number of error-correction codewords.
+     * @return Generator coefficients.
+     */
     function rsDivisor(degree) {
         var result = new Array(degree).fill(0);
         result[degree - 1] = 1;
@@ -48,6 +62,12 @@
         return result;
     }
 
+    /**
+     * @brief Calculates Reed-Solomon remainder codewords for one data block.
+     * @param data Data codewords.
+     * @param divisor Generator polynomial coefficients.
+     * @return Error-correction codewords.
+     */
     function rsRemainder(data, divisor) {
         var result = new Array(divisor.length).fill(0);
         data.forEach(function (value) {
@@ -60,6 +80,11 @@
         return result;
     }
 
+    /**
+     * @brief Encodes a string as UTF-8 bytes with a legacy-browser fallback.
+     * @param text Input string.
+     * @return Array of byte values.
+     */
     function utf8Bytes(text) {
         if (window.TextEncoder) return Array.from(new TextEncoder().encode(text));
 
@@ -69,6 +94,9 @@
         return bytes;
     }
 
+    /**
+     * @brief Creates a mutable bit buffer for QR payload serialization.
+     */
     function BitBuffer() {
         this.bits = [];
     }
@@ -85,6 +113,11 @@
         return bytes;
     };
 
+    /**
+     * @brief Selects the smallest supported QR version that can contain the payload.
+     * @param bytes UTF-8 payload bytes.
+     * @return Supported QR version from 1 through 10.
+     */
     function selectVersion(bytes) {
         for (var version = 1; version < QR_TABLE.length; version++) {
             var dataCodewords = QR_TABLE[version].blocks.reduce(function (sum, value) {
@@ -96,6 +129,12 @@
         throw new Error('QR data is too long');
     }
 
+    /**
+     * @brief Serializes text and padding into QR data codewords.
+     * @param text Text payload.
+     * @param version Selected QR version.
+     * @return Data codewords sized for the selected version.
+     */
     function makeDataCodewords(text, version) {
         var bytes = utf8Bytes(text);
         var table = QR_TABLE[version];
@@ -115,6 +154,11 @@
         return data;
     }
 
+    /**
+     * @brief Creates interleaved data and error-correction codewords.
+     * @param text Text payload.
+     * @return Object containing the selected version and final codewords.
+     */
     function makeCodewords(text) {
         var bytes = utf8Bytes(text);
         var version = selectVersion(bytes);
@@ -144,6 +188,11 @@
         return { version: version, codewords: result };
     }
 
+    /**
+     * @brief Allocates QR module and function-reservation matrices.
+     * @param size Matrix width and height.
+     * @return Matrix state with modules and function masks.
+     */
     function createMatrix(size) {
         var modules = [];
         var isFunction = [];
@@ -154,12 +203,26 @@
         return { modules: modules, isFunction: isFunction };
     }
 
+    /**
+     * @brief Writes one in-bounds QR module and optionally reserves it.
+     * @param matrix Mutable QR matrix state.
+     * @param x Horizontal module coordinate.
+     * @param y Vertical module coordinate.
+     * @param dark Whether the module is dark.
+     * @param isFunction Whether data placement must skip the module.
+     */
     function setModule(matrix, x, y, dark, isFunction) {
         if (x < 0 || y < 0 || y >= matrix.modules.length || x >= matrix.modules.length) return;
         matrix.modules[y][x] = !!dark;
         if (isFunction) matrix.isFunction[y][x] = true;
     }
 
+    /**
+     * @brief Draws one finder pattern centered at the supplied coordinate.
+     * @param matrix Mutable QR matrix state.
+     * @param cx Horizontal center.
+     * @param cy Vertical center.
+     */
     function drawFinder(matrix, cx, cy) {
         for (var dy = -4; dy <= 4; dy++) {
             for (var dx = -4; dx <= 4; dx++) {
@@ -170,6 +233,12 @@
         }
     }
 
+    /**
+     * @brief Draws one alignment pattern centered at the supplied coordinate.
+     * @param matrix Mutable QR matrix state.
+     * @param cx Horizontal center.
+     * @param cy Vertical center.
+     */
     function drawAlignment(matrix, cx, cy) {
         for (var dy = -2; dy <= 2; dy++) {
             for (var dx = -2; dx <= 2; dx++) {
@@ -179,6 +248,11 @@
         }
     }
 
+    /**
+     * @brief Draws all fixed patterns required by a QR version.
+     * @param matrix Mutable QR matrix state.
+     * @param version Selected QR version.
+     */
     function drawFunctionPatterns(matrix, version) {
         var size = matrix.modules.length;
         drawFinder(matrix, 3, 3);
@@ -202,6 +276,11 @@
         if (version >= 7) drawVersionBits(matrix, version);
     }
 
+    /**
+     * @brief Calculates BCH-protected format bits for error level L and one mask.
+     * @param mask QR mask identifier from 0 through 7.
+     * @return Encoded 15-bit format value.
+     */
     function formatBits(mask) {
         var data = (EC_LEVEL_BITS << 3) | mask;
         var bits = data << 10;
@@ -211,6 +290,11 @@
         return ((data << 10) | bits) ^ 0x5412;
     }
 
+    /**
+     * @brief Writes format bits into both reserved matrix locations.
+     * @param matrix Mutable QR matrix state.
+     * @param mask QR mask identifier.
+     */
     function drawFormatBits(matrix, mask) {
         var size = matrix.modules.length;
         var bits = formatBits(mask);
@@ -227,12 +311,22 @@
         setModule(matrix, 8, size - 8, true, true);
     }
 
+    /**
+     * @brief Calculates BCH-protected version information.
+     * @param version QR version of at least 7.
+     * @return Encoded 18-bit version value.
+     */
     function versionBits(version) {
         var bits = version;
         for (var i = 0; i < 12; i++) bits = (bits << 1) ^ (((bits >>> 11) & 1) * 0x1f25);
         return (version << 12) | bits;
     }
 
+    /**
+     * @brief Writes version information into both reserved matrix locations.
+     * @param matrix Mutable QR matrix state.
+     * @param version QR version of at least 7.
+     */
     function drawVersionBits(matrix, version) {
         var size = matrix.modules.length;
         var bits = versionBits(version);
@@ -245,6 +339,13 @@
         }
     }
 
+    /**
+     * @brief Evaluates one standard QR mask formula.
+     * @param mask Mask identifier from 0 through 7.
+     * @param x Horizontal module coordinate.
+     * @param y Vertical module coordinate.
+     * @return Whether the data module must be inverted.
+     */
     function maskBit(mask, x, y) {
         switch (mask) {
             case 0: return (x + y) % 2 === 0;
@@ -259,6 +360,11 @@
         }
     }
 
+    /**
+     * @brief Deep-copies the two-dimensional QR matrix state.
+     * @param matrix Source QR matrix.
+     * @return Independent matrix state.
+     */
     function cloneMatrix(matrix) {
         return {
             modules: matrix.modules.map(function (row) { return row.slice(); }),
@@ -266,6 +372,13 @@
         };
     }
 
+    /**
+     * @brief Places codeword bits into a cloned base matrix using one mask.
+     * @param base Matrix containing fixed function patterns.
+     * @param codewords Interleaved QR codewords.
+     * @param mask Mask identifier from 0 through 7.
+     * @return Completed candidate matrix.
+     */
     function drawCodewords(base, codewords, mask) {
         var matrix = cloneMatrix(base);
         var size = matrix.modules.length;
@@ -293,12 +406,21 @@
         return matrix;
     }
 
+    /**
+     * @brief Scores a QR candidate using the standard visual penalty rules.
+     * @param matrix Completed QR matrix state.
+     * @return Non-negative penalty score; lower is better.
+     */
     function penalty(matrix) {
         var modules = matrix.modules;
         var size = modules.length;
         var totalPenalty = 0;
         var darkCount = 0;
 
+        /**
+         * @brief Adds penalties for long runs of equal modules.
+         * @param values One matrix row or column.
+         */
         function addRuns(values) {
             var runColor = values[0];
             var runLength = 1;
@@ -330,6 +452,10 @@
             }
         }
 
+        /**
+         * @brief Adds penalties for finder-like sequences in one row or column.
+         * @param values One matrix row or column.
+         */
         function addFinderPenalty(values) {
             var a = '10111010000';
             var b = '00001011101';
@@ -355,6 +481,11 @@
         return totalPenalty;
     }
 
+    /**
+     * @brief Generates the best-scoring QR module grid for the text.
+     * @param text Text payload supported by QR versions 1 through 10.
+     * @return Two-dimensional boolean module grid.
+     */
     function makeQr(text) {
         var payload = makeCodewords(text);
         var size = 21 + (payload.version - 1) * 4;
@@ -375,6 +506,11 @@
         return best;
     }
 
+    /**
+     * @brief Renders a QR module grid into the supplied canvas.
+     * @param canvas Target HTMLCanvasElement.
+     * @param text Text payload to encode.
+     */
     function drawQr(canvas, text) {
         var modules = makeQr(text);
         var quiet = 4;
@@ -399,6 +535,9 @@
         }
     }
 
+    /**
+     * @brief Binds accessible QR modal controls when all required elements exist.
+     */
     function initQrModal() {
         var button = document.getElementById('qr-btn');
         var modal = document.getElementById('qr-modal');
@@ -406,12 +545,18 @@
         var closeButtons = document.querySelectorAll('[data-qr-close]');
         if (!button || !modal || !canvas) return;
 
+        /**
+         * @brief Closes the QR modal and restores focus to the trigger.
+         */
         function close() {
             modal.hidden = true;
             document.body.classList.remove('qr-modal-open');
             button.focus();
         }
 
+        /**
+         * @brief Generates the current page QR code and opens the modal.
+         */
         function open() {
             try {
                 drawQr(canvas, window.location.href);
